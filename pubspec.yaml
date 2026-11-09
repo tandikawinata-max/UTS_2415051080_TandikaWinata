@@ -38,6 +38,7 @@ dependencies:
   google_mlkit_text_recognition: ^1.0.1
   provider: ^6.1.5+1
   http: ^1.6.0
+  supabase_flutter: ^2.18.3
 
 dev_dependencies:
   flutter_test:

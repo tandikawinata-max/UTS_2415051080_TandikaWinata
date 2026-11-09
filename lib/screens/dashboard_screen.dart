@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/measurement_provider.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/logout_button.dart';
 import '../widgets/measurement_card.dart';
 import '../widgets/measurement_status_card.dart';
 import '../widgets/section_header.dart';
@@ -21,7 +22,21 @@ class DashboardScreen extends StatelessWidget {
     final measurements = state.measurements;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Usize')),
+      appBar: AppBar(
+        title: const Text('Usize'),
+        actions: [
+          IconButton(
+            tooltip: 'Muat ulang profil',
+            onPressed: state.isLoading
+                ? null
+                : () {
+                    context.read<MeasurementProvider>().loadMeasurements();
+                  },
+            icon: const Icon(Icons.refresh),
+          ),
+          const LogoutButton(),
+        ],
+      ),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -108,7 +123,8 @@ class DashboardScreen extends StatelessWidget {
                     const SizedBox(height: 28),
                     const SectionHeader(
                       title: 'Profil ukuran tubuh',
-                      subtitle: 'Data contoh untuk pratinjau tampilan Usize.',
+                      subtitle:
+                          'Profil ukuran tubuh yang tersimpan pada akunmu.',
                     ),
                     Align(
                       alignment: Alignment.centerLeft,

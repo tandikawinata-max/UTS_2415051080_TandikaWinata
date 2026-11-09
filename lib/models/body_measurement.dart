@@ -1,5 +1,6 @@
 class BodyMeasurement {
   final String id;
+  final String? userId;
   final String label;
   final double chestCm;
   final double? waistCm;
@@ -11,6 +12,7 @@ class BodyMeasurement {
 
   const BodyMeasurement({
     required this.id,
+    this.userId,
     required this.label,
     required this.chestCm,
     this.waistCm,
@@ -20,4 +22,19 @@ class BodyMeasurement {
     this.weightKg,
     required this.measuredAt,
   });
+
+  factory BodyMeasurement.fromJson(Map<String, dynamic> json) {
+    return BodyMeasurement(
+      id: json['id'] as String,
+      userId: json['user_id'] as String,
+      label: json['label'] as String,
+      chestCm: (json['chest_cm'] as num).toDouble(),
+      waistCm: (json['waist_cm'] as num?)?.toDouble(),
+      hipCm: (json['hip_cm'] as num?)?.toDouble(),
+      shoulderWidthCm: (json['shoulder_width_cm'] as num?)?.toDouble(),
+      heightCm: (json['height_cm'] as num?)?.toDouble(),
+      weightKg: (json['weight_kg'] as num?)?.toDouble(),
+      measuredAt: DateTime.parse(json['measured_at'] as String).toLocal(),
+    );
+  }
 }
