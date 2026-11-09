@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'screens/ocr_test_screen.dart';
+import 'screens/dashboard_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -16,9 +16,10 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
+        scaffoldBackgroundColor: const Color(0xFFF7F8FC),
         useMaterial3: true,
       ),
-      home: const OcrTestScreen(),
+      home: const DashboardScreen(),
     );
   }
 }
