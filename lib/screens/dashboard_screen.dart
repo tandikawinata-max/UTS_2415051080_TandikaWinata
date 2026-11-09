@@ -6,6 +6,7 @@ import '../widgets/empty_state.dart';
 import '../widgets/measurement_card.dart';
 import '../widgets/measurement_status_card.dart';
 import '../widgets/section_header.dart';
+import 'measurement_guide_screen.dart';
 import 'measurement_list_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -92,6 +93,18 @@ class DashboardScreen extends StatelessWidget {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const MeasurementGuideScreen(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.straighten),
+                      label: const Text('Panduan pengukuran'),
+                    ),
                     const SizedBox(height: 28),
                     const SectionHeader(
                       title: 'Profil ukuran tubuh',
@@ -103,9 +116,7 @@ class DashboardScreen extends StatelessWidget {
                         onPressed: () {
                           Navigator.of(context).push(
                             MaterialPageRoute<void>(
-                              builder: (context) {
-                                return const MeasurementListScreen();
-                              },
+                              builder: (_) => const MeasurementListScreen(),
                             ),
                           );
                         },
