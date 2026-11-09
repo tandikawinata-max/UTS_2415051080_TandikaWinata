@@ -38,7 +38,31 @@ void main() {
     });
   }
 
-  testWidgets('Dashboard dapat membuka halaman OCR', (tester) async {
+  testWidgets('Menu utama berpindah dan Back menuju Beranda', (tester) async {
+    await tester.pumpWidget(const MyApp());
+
+    await tester.tap(find.text('Analisis'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Usize — Uji OCR'), findsOneWidget);
+
+    await tester.tap(find.text('Riwayat'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Riwayat Analisis'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    final navigationBar = tester.widget<NavigationBar>(
+      find.byType(NavigationBar),
+    );
+
+    expect(navigationBar.selectedIndex, 0);
+    expect(find.text('Kenali ukuranmu'), findsOneWidget);
+  });
+
+  testWidgets('Tombol dashboard mengaktifkan menu Analisis', (tester) async {
     await tester.pumpWidget(const MyApp());
 
     final button = find.text('Buka pembaca tabel');
@@ -47,8 +71,42 @@ void main() {
     await tester.tap(button);
     await tester.pumpAndSettle();
 
-    expect(find.text('Usize — Uji OCR'), findsOneWidget);
+    final navigationBar = tester.widget<NavigationBar>(
+      find.byType(NavigationBar),
+    );
+
+    expect(navigationBar.selectedIndex, 1);
     expect(find.text('Pilih screenshot'), findsOneWidget);
+  });
+
+  testWidgets('Detail menampilkan profil yang dipilih dari daftar', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MyApp());
+
+    final listButton = find.text('Lihat semua profil');
+
+    await tester.ensureVisible(listButton);
+    await tester.tap(listButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Daftar Profil'), findsOneWidget);
+
+    final selectedProfile = find.text('Profil Contoh B');
+
+    await tester.ensureVisible(selectedProfile);
+    await tester.tap(selectedProfile);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Detail Profil'), findsOneWidget);
+    expect(find.text('Profil Contoh B'), findsOneWidget);
+    expect(find.text('100.0 cm'), findsOneWidget);
+    expect(find.text('Profil Contoh A'), findsNothing);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Daftar Profil'), findsOneWidget);
 
     await tester.pageBack();
     await tester.pumpAndSettle();

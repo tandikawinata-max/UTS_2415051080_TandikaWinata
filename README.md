@@ -26,14 +26,6 @@ Pengembangan Usize menggunakan branch `usize` pada repositori yang juga menyimpa
 
 [Buka branch Usize](https://github.com/tandikawinata-max/flutter_ui_fundamentals/tree/usize)
 
-## Status Pengembangan
-
-Proyek sedang memasuki Tahap 04, yaitu pembuatan dashboard, reusable widgets, dan layout responsif.
-
-Pemilihan gambar dan pembacaan gambar berisi teks sederhana sudah berhasil diuji pada emulator Android. Pengujian awal menggunakan gambar tabel ukuran menghasilkan teks kosong sehingga diperlukan pengujian lanjutan dengan gambar yang lebih jelas.
-
-Kode dashboard dan pengujian responsif sudah disiapkan. Hasil pemeriksaan pada proyek lokal akan dicatat setelah pengujian selesai.
-
 ## Fitur dan Progres
 
 | Fitur                               | Status                              |

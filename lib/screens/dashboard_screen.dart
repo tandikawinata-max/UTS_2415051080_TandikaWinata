@@ -4,10 +4,12 @@ import '../models/body_measurement.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/measurement_card.dart';
 import '../widgets/section_header.dart';
-import 'ocr_test_screen.dart';
+import 'measurement_list_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
-  const DashboardScreen({super.key});
+  final VoidCallback onOpenAnalysis;
+
+  const DashboardScreen({super.key, required this.onOpenAnalysis});
 
   static final List<BodyMeasurement> _sampleMeasurements = [
     BodyMeasurement(
@@ -102,15 +104,7 @@ class DashboardScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 20),
                             FilledButton.icon(
-                              onPressed: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (context) {
-                                      return const OcrTestScreen();
-                                    },
-                                  ),
-                                );
-                              },
+                              onPressed: onOpenAnalysis,
                               icon: const Icon(Icons.image_outlined),
                               label: const Text('Buka pembaca tabel'),
                             ),
@@ -122,6 +116,24 @@ class DashboardScreen extends StatelessWidget {
                     const SectionHeader(
                       title: 'Profil ukuran tubuh',
                       subtitle: 'Data contoh untuk pratinjau tampilan Usize.',
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (context) {
+                                return MeasurementListScreen(
+                                  measurements: _sampleMeasurements,
+                                );
+                              },
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.list_alt),
+                        label: const Text('Lihat semua profil'),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     LayoutBuilder(
@@ -156,8 +168,8 @@ class DashboardScreen extends StatelessWidget {
                       icon: Icons.history,
                       title: 'Belum ada analisis tersimpan',
                       message:
-                          'Hasil analisis akan muncul di sini '
-                          'setelah fitur penyimpanan tersedia.',
+                          'Hasil analisis yang kamu simpan '
+                          'akan muncul di sini.',
                     ),
                   ],
                 ),
