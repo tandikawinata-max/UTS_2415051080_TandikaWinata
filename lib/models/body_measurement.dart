@@ -37,4 +37,22 @@ class BodyMeasurement {
       measuredAt: DateTime.parse(json['measured_at'] as String).toLocal(),
     );
   }
+
+  Map<String, dynamic> toInsertJson() {
+    return {
+      'id': id,
+      'label': label.trim(),
+      'chest_cm': chestCm,
+      'waist_cm': waistCm,
+      'hip_cm': hipCm,
+      'shoulder_width_cm': shoulderWidthCm,
+      'height_cm': heightCm,
+      'weight_kg': weightKg,
+      'measured_at': measuredAt.toUtc().toIso8601String(),
+    };
+  }
+}
+
+class MeasurementSaveConflict implements Exception {
+  const MeasurementSaveConflict();
 }

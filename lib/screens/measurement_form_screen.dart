@@ -1,0 +1,237 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
+
+import '../models/body_measurement.dart';
+import '../providers/measurement_provider.dart';
+import '../utils/measurement_validators.dart';
+
+class MeasurementFormScreen extends StatefulWidget {
+  const MeasurementFormScreen({super.key});
+
+  @override
+  State<MeasurementFormScreen> createState() => _MeasurementFormScreenState();
+}
+
+class _MeasurementFormScreenState extends State<MeasurementFormScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final String _draftId = const Uuid().v4();
+
+  final _controllers = {
+    'label': TextEditingController(),
+    'chest': TextEditingController(),
+    'waist': TextEditingController(),
+    'hip': TextEditingController(),
+    'shoulder': TextEditingController(),
+    'height': TextEditingController(),
+    'weight': TextEditingController(),
+  };
+
+  DateTime _measuredAt = DateTime.now();
+
+  String get _dateText {
+    final day = _measuredAt.day.toString().padLeft(2, '0');
+    final month = _measuredAt.month.toString().padLeft(2, '0');
+
+    return '$day/$month/${_measuredAt.year}';
+  }
+
+  double? _number(String key) {
+    return MeasurementValidators.parseOptional(_controllers[key]!.text);
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _measuredAt,
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+    );
+
+    if (!mounted || picked == null) return;
+
+    setState(() {
+      _measuredAt = picked;
+    });
+  }
+
+  Future<void> _save() async {
+    final state = context.read<MeasurementProvider>();
+
+    if (state.isSaving || state.isLoading) return;
+    if (!_formKey.currentState!.validate()) return;
+
+    FocusScope.of(context).unfocus();
+
+    final measurement = BodyMeasurement(
+      id: _draftId,
+      label: _controllers['label']!.text.trim(),
+      chestCm: _number('chest')!,
+      waistCm: _number('waist'),
+      hipCm: _number('hip'),
+      shoulderWidthCm: _number('shoulder'),
+      heightCm: _number('height'),
+      weightKg: _number('weight'),
+      measuredAt: _measuredAt,
+    );
+
+    final saved = await state.createMeasurement(measurement);
+
+    if (!mounted || saved == null) return;
+
+    // Tunggu tampilan memperbarui status isSaving dan PopScope.
+    await WidgetsBinding.instance.endOfFrame;
+
+    if (!mounted) return;
+
+    Navigator.of(context).pop(saved);
+  }
+
+  Widget _numberField({
+    required String name,
+    required String label,
+    required bool enabled,
+    bool isRequired = false,
+    String unit = 'cm',
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: TextFormField(
+        key: ValueKey(name),
+        controller: _controllers[name],
+        enabled: enabled,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        textInputAction: TextInputAction.next,
+        decoration: InputDecoration(
+          labelText: isRequired ? '$label *' : '$label (opsional)',
+          suffixText: unit,
+          border: const OutlineInputBorder(),
+        ),
+        validator: (value) {
+          return MeasurementValidators.number(value, isRequired: isRequired);
+        },
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<MeasurementProvider>();
+    final busy = state.isSaving || state.isLoading;
+    final theme = Theme.of(context);
+
+    return PopScope<BodyMeasurement>(
+      canPop: !state.isSaving,
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Tambah Profil')),
+        body: SafeArea(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Form(
+                  key: _formKey,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Isi ukuran tubuh hasil pengukuranmu. '
+                        'Kolom bertanda * wajib diisi. '
+                        'Desimal boleh menggunakan koma atau titik.',
+                      ),
+                      const SizedBox(height: 24),
+                      TextFormField(
+                        key: const ValueKey('label'),
+                        controller: _controllers['label'],
+                        enabled: !busy,
+                        maxLength: 80,
+                        textCapitalization: TextCapitalization.sentences,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          labelText: 'Nama profil *',
+                          hintText: 'Contoh: Ukuran saya November',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: MeasurementValidators.label,
+                      ),
+                      const SizedBox(height: 16),
+                      _numberField(
+                        name: 'chest',
+                        label: 'Lingkar dada',
+                        enabled: !busy,
+                        isRequired: true,
+                      ),
+                      _numberField(
+                        name: 'waist',
+                        label: 'Lingkar pinggang',
+                        enabled: !busy,
+                      ),
+                      _numberField(
+                        name: 'hip',
+                        label: 'Lingkar pinggul',
+                        enabled: !busy,
+                      ),
+                      _numberField(
+                        name: 'shoulder',
+                        label: 'Lebar bahu',
+                        enabled: !busy,
+                      ),
+                      _numberField(
+                        name: 'height',
+                        label: 'Tinggi badan',
+                        enabled: !busy,
+                      ),
+                      _numberField(
+                        name: 'weight',
+                        label: 'Berat badan',
+                        enabled: !busy,
+                        unit: 'kg',
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: busy ? null : _pickDate,
+                        icon: const Icon(Icons.calendar_month_outlined),
+                        label: Text('Tanggal pengukuran: $_dateText'),
+                      ),
+                      const SizedBox(height: 20),
+                      if (state.saveErrorMessage != null) ...[
+                        Text(
+                          state.saveErrorMessage!,
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      if (state.isSaving) ...[
+                        const LinearProgressIndicator(),
+                        const SizedBox(height: 16),
+                      ],
+                      FilledButton.icon(
+                        key: const ValueKey('saveMeasurement'),
+                        onPressed: busy ? null : _save,
+                        icon: const Icon(Icons.save_outlined),
+                        label: Text(
+                          state.isSaving ? 'Menyimpan...' : 'Simpan profil',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
