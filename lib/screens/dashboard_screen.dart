@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '../models/body_measurement.dart';
+import '../providers/measurement_provider.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/measurement_card.dart';
+import '../widgets/measurement_status_card.dart';
 import '../widgets/section_header.dart';
 import 'measurement_list_screen.dart';
 
@@ -11,35 +13,11 @@ class DashboardScreen extends StatelessWidget {
 
   const DashboardScreen({super.key, required this.onOpenAnalysis});
 
-  static final List<BodyMeasurement> _sampleMeasurements = [
-    BodyMeasurement(
-      id: 'demo-01',
-      label: 'Profil Contoh A',
-      chestCm: 94,
-      waistCm: 80,
-      hipCm: 96,
-      measuredAt: DateTime(2026, 11, 9),
-    ),
-    BodyMeasurement(
-      id: 'demo-02',
-      label: 'Profil Contoh B',
-      chestCm: 100,
-      waistCm: 86,
-      hipCm: 102,
-      measuredAt: DateTime(2026, 11, 9),
-    ),
-    BodyMeasurement(
-      id: 'demo-03',
-      label: 'Profil Contoh C',
-      chestCm: 88,
-      waistCm: 74,
-      measuredAt: DateTime(2026, 11, 9),
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final state = context.watch<MeasurementProvider>();
+    final measurements = state.measurements;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Usize')),
@@ -72,7 +50,9 @@ class DashboardScreen extends StatelessWidget {
                       'Gunakan ukuran tubuh dan tabel produk '
                       'untuk membantu memilih ukuran pakaian.',
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
+                    const MeasurementStatusCard(),
+                    const SizedBox(height: 20),
                     Card(
                       margin: EdgeInsets.zero,
                       color: theme.colorScheme.primaryContainer,
@@ -124,9 +104,7 @@ class DashboardScreen extends StatelessWidget {
                           Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (context) {
-                                return MeasurementListScreen(
-                                  measurements: _sampleMeasurements,
-                                );
+                                return const MeasurementListScreen();
                               },
                             ),
                           );
@@ -136,6 +114,15 @@ class DashboardScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
+                    if (measurements.isEmpty &&
+                        !state.isLoading &&
+                        state.errorMessage == null)
+                      const EmptyState(
+                        icon: Icons.person_outline,
+                        title: 'Belum ada profil',
+                        message:
+                            'Profil ukuran tubuh akan ditampilkan di sini.',
+                      ),
                     LayoutBuilder(
                       builder: (context, profileConstraints) {
                         const spacing = 16.0;
@@ -147,7 +134,7 @@ class DashboardScreen extends StatelessWidget {
                           spacing: spacing,
                           runSpacing: spacing,
                           children: [
-                            for (final measurement in _sampleMeasurements)
+                            for (final measurement in measurements)
                               SizedBox(
                                 width: cardWidth,
                                 child: MeasurementCard(

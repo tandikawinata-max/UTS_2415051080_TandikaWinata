@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '../models/body_measurement.dart';
+import '../providers/measurement_provider.dart';
+import '../widgets/empty_state.dart';
+import '../widgets/measurement_status_card.dart';
 
 class MeasurementDetailScreen extends StatelessWidget {
-  final BodyMeasurement measurement;
+  final String measurementId;
 
-  const MeasurementDetailScreen({super.key, required this.measurement});
+  const MeasurementDetailScreen({super.key, required this.measurementId});
 
   String _formatMeasurement(double? value, String unit) {
     if (value == null) {
@@ -17,7 +20,33 @@ class MeasurementDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<MeasurementProvider>();
+    final measurement = state.findById(measurementId);
     final theme = Theme.of(context);
+
+    if (measurement == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Detail Profil')),
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              const MeasurementStatusCard(),
+              const SizedBox(height: 16),
+              if (!state.isLoading && state.errorMessage == null)
+                const EmptyState(
+                  icon: Icons.person_off_outlined,
+                  title: 'Profil tidak ditemukan',
+                  message:
+                      'Kembali ke daftar untuk memilih profil yang tersedia.',
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final isActive = state.activeMeasurementId == measurement.id;
     final date = measurement.measuredAt.toLocal();
     final formattedDate =
         '${date.day.toString().padLeft(2, '0')}/'
@@ -51,7 +80,31 @@ class MeasurementDetailScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text('Diukur pada $formattedDate'),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
+                FilledButton.icon(
+                  onPressed: isActive
+                      ? null
+                      : () {
+                          context.read<MeasurementProvider>().selectMeasurement(
+                            measurement.id,
+                          );
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                '${measurement.label} menjadi profil aktif.',
+                              ),
+                            ),
+                          );
+                        },
+                  icon: Icon(
+                    isActive ? Icons.check_circle : Icons.check_circle_outline,
+                  ),
+                  label: Text(
+                    isActive ? 'Profil ini aktif' : 'Gunakan profil ini',
+                  ),
+                ),
+                const SizedBox(height: 20),
                 Card(
                   margin: EdgeInsets.zero,
                   child: Column(

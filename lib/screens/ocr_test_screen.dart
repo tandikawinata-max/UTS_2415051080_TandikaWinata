@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../services/ocr_service.dart';
+import '../widgets/measurement_status_card.dart';
 
 class OcrTestScreen extends StatefulWidget {
   const OcrTestScreen({super.key});
@@ -89,6 +90,8 @@ class _OcrTestScreenState extends State<OcrTestScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          const MeasurementStatusCard(),
+          const SizedBox(height: 20),
           const Text(
             'Baca tabel ukuran',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
