@@ -1,70 +1,110 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/screenshot_provider.dart';
+import '../repositories/screenshot_repository.dart';
 import 'analysis_history_screen.dart';
 import 'dashboard_screen.dart';
 import 'ocr_test_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
-  const MainNavigationScreen({super.key});
+  final ScreenshotRepository? screenshotRepository;
+
+  const MainNavigationScreen({super.key, this.screenshotRepository});
 
   @override
-  State<MainNavigationScreen> createState() {
-    return _MainNavigationScreenState();
-  }
+  State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
+  late final ScreenshotProvider _screenshotProvider;
+
   int _selectedIndex = 0;
-  late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
 
-    _pages = [
-      DashboardScreen(onOpenAnalysis: () => _selectPage(1)),
-      const OcrTestScreen(),
-      const AnalysisHistoryScreen(),
-    ];
+    _screenshotProvider = ScreenshotProvider(
+      widget.screenshotRepository ?? DeviceScreenshotRepository(),
+    );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(_recoverScreenshot());
+      }
+    });
   }
 
-  void _selectPage(int index) {
+  Future<void> _recoverScreenshot() async {
+    final recovered = await _screenshotProvider.initialize();
+
+    if (!mounted || !recovered) {
+      return;
+    }
+
+    _selectTab(1);
+  }
+
+  void _selectTab(int index) {
+    if (_selectedIndex == index) {
+      return;
+    }
+
     setState(() {
       _selectedIndex = index;
     });
   }
 
   @override
+  void dispose() {
+    _screenshotProvider.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return PopScope<Object?>(
-      canPop: _selectedIndex == 0,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && _selectedIndex != 0) {
-          _selectPage(0);
-        }
-      },
-      child: Scaffold(
-        body: IndexedStack(index: _selectedIndex, children: _pages),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _selectedIndex,
-          onDestinationSelected: _selectPage,
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
-              label: 'Beranda',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.document_scanner_outlined),
-              selectedIcon: Icon(Icons.document_scanner),
-              label: 'Analisis',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.history_outlined),
-              selectedIcon: Icon(Icons.history),
-              label: 'Riwayat',
-            ),
-          ],
+    return ChangeNotifierProvider<ScreenshotProvider>.value(
+      value: _screenshotProvider,
+      child: PopScope<Object?>(
+        canPop: _selectedIndex == 0,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop && _selectedIndex != 0) {
+            _selectTab(0);
+          }
+        },
+        child: Scaffold(
+          body: IndexedStack(
+            index: _selectedIndex,
+            children: [
+              DashboardScreen(onOpenAnalysis: () => _selectTab(1)),
+              const OcrTestScreen(),
+              const AnalysisHistoryScreen(),
+            ],
+          ),
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: _selectedIndex,
+            onDestinationSelected: _selectTab,
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home),
+                label: 'Beranda',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.document_scanner_outlined),
+                selectedIcon: Icon(Icons.document_scanner),
+                label: 'Analisis',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.history_outlined),
+                selectedIcon: Icon(Icons.history),
+                label: 'Riwayat',
+              ),
+            ],
+          ),
         ),
       ),
     );
