@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 
+import '../models/reviewed_size_chart.dart';
 import '../repositories/screenshot_repository.dart';
+import '../services/size_chart_parser.dart';
 
 enum ScreenshotPhase { idle, recovering, choosing, reading }
 
@@ -15,23 +17,40 @@ class ScreenshotProvider extends ChangeNotifier {
   String? _noticeMessage;
 
   ScreenshotPhase _phase = ScreenshotPhase.idle;
+  ReviewedSizeChart? _reviewedChart;
 
+  int _revision = 0;
   bool _initialized = false;
   bool _disposed = false;
 
   String? get imagePath => _imagePath;
-
   String get recognizedText => _recognizedText;
-
   String? get errorMessage => _errorMessage;
-
   String? get noticeMessage => _noticeMessage;
-
   ScreenshotPhase get phase => _phase;
+  ReviewedSizeChart? get reviewedChart => _reviewedChart;
+  int get revision => _revision;
 
   bool get isBusy => _phase != ScreenshotPhase.idle;
-
   bool get hasImage => _imagePath != null;
+
+  SizeChartDraft buildChartDraft() {
+    return const SizeChartParser().parse(_recognizedText);
+  }
+
+  bool confirmChart(ReviewedSizeChart chart, {required int expectedRevision}) {
+    if (_disposed ||
+        isBusy ||
+        expectedRevision != _revision ||
+        chart.sourceImagePath != _imagePath ||
+        chart.sourceOcrText != _recognizedText) {
+      return false;
+    }
+
+    _reviewedChart = chart;
+    notifyListeners();
+    return true;
+  }
 
   Future<bool> initialize() async {
     if (_disposed || _initialized || isBusy) {
@@ -39,39 +58,7 @@ class ScreenshotProvider extends ChangeNotifier {
     }
 
     _initialized = true;
-    _phase = ScreenshotPhase.recovering;
-    notifyListeners();
-
-    try {
-      final recoveredPath = await _repository.recoverScreenshot();
-
-      if (_disposed || recoveredPath == null) {
-        return false;
-      }
-
-      _imagePath = recoveredPath;
-      _recognizedText = '';
-      _errorMessage = null;
-      _noticeMessage =
-          'Screenshot berhasil dipulihkan setelah aplikasi dibuka kembali. '
-          'Periksa hasil pembacaannya.';
-
-      await _readImage(recoveredPath);
-
-      return !_disposed;
-    } catch (error) {
-      if (!_disposed) {
-        debugPrint('Pemulihan screenshot gagal: $error');
-
-        _errorMessage =
-            'Screenshot sebelumnya belum dapat dipulihkan. '
-            'Silakan pilih ulang gambar dari galeri.';
-      }
-
-      return false;
-    } finally {
-      _finishOperation();
-    }
+    return _importScreenshot(recovering: true);
   }
 
   Future<void> pickScreenshot() async {
@@ -79,32 +66,50 @@ class ScreenshotProvider extends ChangeNotifier {
       return;
     }
 
-    _phase = ScreenshotPhase.choosing;
+    await _importScreenshot(recovering: false);
+  }
+
+  Future<bool> _importScreenshot({required bool recovering}) async {
+    _phase = recovering ? ScreenshotPhase.recovering : ScreenshotPhase.choosing;
     notifyListeners();
 
     try {
-      final selectedPath = await _repository.pickScreenshot();
+      final path = recovering
+          ? await _repository.recoverScreenshot()
+          : await _repository.pickScreenshot();
 
-      if (_disposed || selectedPath == null) {
-        return;
+      if (_disposed || path == null) {
+        return false;
       }
 
-      _imagePath = selectedPath;
+      _imagePath = path;
       _recognizedText = '';
       _errorMessage = null;
-      _noticeMessage = null;
+      _noticeMessage = recovering
+          ? 'Screenshot berhasil dipulihkan setelah aplikasi dibuka kembali. '
+                'Periksa hasil pembacaannya.'
+          : null;
 
-      await _readImage(selectedPath);
+      await _readImage(path);
+      return !_disposed;
     } catch (error) {
       if (!_disposed) {
-        debugPrint('Pemilihan screenshot gagal: $error');
+        debugPrint('Impor screenshot gagal: $error');
 
-        _errorMessage = hasImage
-            ? 'Gambar baru belum berhasil dibuka. '
-                  'Gambar sebelumnya masih ditampilkan. Coba pilih lagi.'
-            : 'Screenshot belum berhasil dibuka. '
-                  'Coba pilih gambar lagi.';
+        if (recovering) {
+          _errorMessage =
+              'Screenshot sebelumnya belum dapat dipulihkan. '
+              'Silakan pilih ulang gambar dari galeri.';
+        } else {
+          _errorMessage = hasImage
+              ? 'Gambar baru belum berhasil dibuka. '
+                    'Gambar sebelumnya masih ditampilkan. Coba pilih lagi.'
+              : 'Screenshot belum berhasil dibuka. '
+                    'Coba pilih gambar lagi.';
+        }
       }
+
+      return false;
     } finally {
       _finishOperation();
     }
@@ -129,6 +134,8 @@ class ScreenshotProvider extends ChangeNotifier {
       return;
     }
 
+    _revision++;
+    _reviewedChart = null;
     _phase = ScreenshotPhase.reading;
     _recognizedText = '';
     _errorMessage = null;
@@ -146,7 +153,7 @@ class ScreenshotProvider extends ChangeNotifier {
       if (_recognizedText.isEmpty) {
         _errorMessage =
             'Teks belum ditemukan. Gunakan screenshot yang lebih jelas '
-            'dan pastikan tulisan pada tabel tidak terlalu kecil.';
+            'atau isi tabel secara manual dari gambar.';
       }
     } catch (error) {
       if (!_disposed) {
@@ -154,7 +161,7 @@ class ScreenshotProvider extends ChangeNotifier {
 
         _errorMessage =
             'Teks belum dapat dibaca. '
-            'Ketuk Baca ulang atau pilih gambar lain.';
+            'Ketuk Baca ulang atau isi tabel secara manual dari gambar.';
       }
     }
   }
@@ -164,6 +171,8 @@ class ScreenshotProvider extends ChangeNotifier {
       return;
     }
 
+    _revision++;
+    _reviewedChart = null;
     _imagePath = null;
     _recognizedText = '';
     _errorMessage = null;
