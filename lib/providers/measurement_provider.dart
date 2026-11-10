@@ -7,27 +7,31 @@ class MeasurementProvider extends ChangeNotifier {
   final MeasurementRepository _repository;
 
   List<BodyMeasurement> _measurements = const [];
+
   String? _activeMeasurementId;
   String? _errorMessage;
   String? _saveErrorMessage;
+  String? _deleteErrorMessage;
+  String? _deleteErrorId;
 
   bool _isLoading = false;
   bool _isSaving = false;
+  bool _isDeleting = false;
   bool _isDisposed = false;
 
   MeasurementProvider(this._repository);
 
   List<BodyMeasurement> get measurements => _measurements;
-
   String? get activeMeasurementId => _activeMeasurementId;
-
   String? get errorMessage => _errorMessage;
-
   String? get saveErrorMessage => _saveErrorMessage;
+  String? get deleteErrorMessage => _deleteErrorMessage;
 
   bool get isLoading => _isLoading;
-
   bool get isSaving => _isSaving;
+  bool get isDeleting => _isDeleting;
+
+  bool get isBusy => _isLoading || _isSaving || _isDeleting;
 
   BodyMeasurement? get activeMeasurement {
     final id = _activeMeasurementId;
@@ -36,16 +40,23 @@ class MeasurementProvider extends ChangeNotifier {
 
   BodyMeasurement? findById(String id) {
     for (final measurement in _measurements) {
-      if (measurement.id == id) {
-        return measurement;
-      }
+      if (measurement.id == id) return measurement;
     }
 
     return null;
   }
 
+  String? deleteErrorFor(String id) {
+    return _deleteErrorId == id ? _deleteErrorMessage : null;
+  }
+
+  void _clearDeleteError() {
+    _deleteErrorMessage = null;
+    _deleteErrorId = null;
+  }
+
   Future<void> loadMeasurements() async {
-    if (_isDisposed || _isLoading || _isSaving) return;
+    if (_isDisposed || isBusy) return;
 
     _isLoading = true;
     _errorMessage = null;
@@ -62,6 +73,12 @@ class MeasurementProvider extends ChangeNotifier {
 
       if (activeId != null && findById(activeId) == null) {
         _activeMeasurementId = null;
+      }
+
+      final failedId = _deleteErrorId;
+
+      if (failedId != null && findById(failedId) == null) {
+        _clearDeleteError();
       }
     } catch (error) {
       if (_isDisposed) return;
@@ -99,14 +116,50 @@ class MeasurementProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<BodyMeasurement?> createMeasurement(
-    BodyMeasurement measurement,
-  ) async {
-    if (_isDisposed || _isSaving) return null;
+  void _storeMeasurement(BodyMeasurement saved) {
+    final updated = [
+      saved,
+      ..._measurements.where((item) => item.id != saved.id),
+    ];
+
+    updated.sort((a, b) {
+      final dateOrder = b.measuredAt.compareTo(a.measuredAt);
+
+      return dateOrder != 0 ? dateOrder : a.id.compareTo(b.id);
+    });
+
+    _measurements = List<BodyMeasurement>.unmodifiable(updated);
+    _errorMessage = null;
+
+    if (_deleteErrorId == saved.id) {
+      _clearDeleteError();
+    }
+  }
+
+  Future<BodyMeasurement?> createMeasurement(BodyMeasurement measurement) {
+    return _saveMeasurement(measurement, isUpdate: false);
+  }
+
+  Future<BodyMeasurement?> updateMeasurement(BodyMeasurement measurement) {
+    return _saveMeasurement(measurement, isUpdate: true);
+  }
+
+  Future<BodyMeasurement?> _saveMeasurement(
+    BodyMeasurement measurement, {
+    required bool isUpdate,
+  }) async {
+    if (_isDisposed || _isSaving || _isDeleting) return null;
 
     if (_isLoading) {
       _saveErrorMessage =
           'Profil sedang dimuat. Tunggu sebentar, lalu coba lagi.';
+      notifyListeners();
+      return null;
+    }
+
+    if (isUpdate && findById(measurement.id) == null) {
+      _saveErrorMessage =
+          'Profil tidak tersedia. Kembali ke daftar dan muat ulang.';
       notifyListeners();
       return null;
     }
@@ -116,24 +169,13 @@ class MeasurementProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final saved = await _repository.createMeasurement(measurement);
+      final saved = isUpdate
+          ? await _repository.updateMeasurement(measurement)
+          : await _repository.createMeasurement(measurement);
 
       if (_isDisposed) return null;
 
-      final updated = [
-        saved,
-        ..._measurements.where((item) => item.id != saved.id),
-      ];
-
-      updated.sort((a, b) {
-        final dateOrder = b.measuredAt.compareTo(a.measuredAt);
-
-        return dateOrder != 0 ? dateOrder : a.id.compareTo(b.id);
-      });
-
-      _measurements = List<BodyMeasurement>.unmodifiable(updated);
-      _errorMessage = null;
-
+      _storeMeasurement(saved);
       return saved;
     } on MeasurementSaveConflict {
       if (!_isDisposed) {
@@ -143,13 +185,23 @@ class MeasurementProvider extends ChangeNotifier {
       }
 
       return null;
+    } on MeasurementUnavailable {
+      if (!_isDisposed) {
+        _saveErrorMessage =
+            'Profil sudah tidak tersedia atau akses akun berubah. '
+            'Kembali ke daftar dan muat ulang.';
+      }
+
+      return null;
     } catch (error) {
       if (!_isDisposed) {
         debugPrint('Penyimpanan profil belum terkonfirmasi: $error');
 
+        final operation = isUpdate ? 'Perubahan' : 'Penyimpanan';
+
         _saveErrorMessage =
-            'Penyimpanan belum dapat dikonfirmasi. '
-            'Periksa koneksi, lalu coba lagi. '
+            '$operation belum dapat dikonfirmasi. '
+            'Periksa koneksi, lalu coba simpan lagi. '
             'Isian tetap tersedia di formulir.';
       }
 
@@ -162,70 +214,67 @@ class MeasurementProvider extends ChangeNotifier {
     }
   }
 
-  Future<BodyMeasurement?> updateMeasurement(
-    BodyMeasurement measurement,
-  ) async {
-    if (_isDisposed || _isSaving) return null;
+  Future<bool> deleteMeasurement(String id) async {
+    if (_isDisposed || _isSaving || _isDeleting) return false;
 
     if (_isLoading) {
-      _saveErrorMessage =
+      _deleteErrorId = id;
+      _deleteErrorMessage =
           'Profil sedang dimuat. Tunggu sebentar, lalu coba lagi.';
       notifyListeners();
-      return null;
+      return false;
     }
 
-    if (findById(measurement.id) == null) {
-      _saveErrorMessage =
-          'Profil tidak tersedia. Kembali ke daftar dan muat ulang.';
+    if (findById(id) == null) {
+      _deleteErrorId = id;
+      _deleteErrorMessage = 'Profil tidak tersedia. Muat ulang daftar profil.';
       notifyListeners();
-      return null;
+      return false;
     }
 
-    _isSaving = true;
-    _saveErrorMessage = null;
+    _isDeleting = true;
+    _deleteErrorId = id;
+    _deleteErrorMessage = null;
     notifyListeners();
 
     try {
-      final saved = await _repository.updateMeasurement(measurement);
+      await _repository.deleteMeasurement(id);
 
-      if (_isDisposed) return null;
+      if (_isDisposed) return false;
 
-      final updated = _measurements.map((item) {
-        return item.id == saved.id ? saved : item;
-      }).toList();
+      _measurements = List<BodyMeasurement>.unmodifiable(
+        _measurements.where((item) => item.id != id),
+      );
 
-      updated.sort((a, b) {
-        final dateOrder = b.measuredAt.compareTo(a.measuredAt);
+      if (_activeMeasurementId == id) {
+        _activeMeasurementId = null;
+      }
 
-        return dateOrder != 0 ? dateOrder : a.id.compareTo(b.id);
-      });
-
-      _measurements = List<BodyMeasurement>.unmodifiable(updated);
       _errorMessage = null;
+      _clearDeleteError();
 
-      return saved;
+      return true;
     } on MeasurementUnavailable {
       if (!_isDisposed) {
-        _saveErrorMessage =
-            'Profil sudah tidak tersedia atau akses akun berubah. '
-            'Kembali ke daftar dan muat ulang.';
+        _deleteErrorMessage =
+            'Profil mungkin sudah dihapus atau aksesnya berubah. '
+            'Muat ulang profil untuk memeriksa data terbaru.';
       }
 
-      return null;
+      return false;
     } catch (error) {
       if (!_isDisposed) {
-        debugPrint('Perubahan profil belum terkonfirmasi: $error');
+        debugPrint('Penghapusan profil belum terkonfirmasi: $error');
 
-        _saveErrorMessage =
-            'Perubahan belum dapat dikonfirmasi. '
-            'Periksa koneksi, lalu coba simpan lagi. '
-            'Isian tetap tersedia di formulir.';
+        _deleteErrorMessage =
+            'Penghapusan belum dapat dikonfirmasi. '
+            'Periksa koneksi, lalu coba lagi atau muat ulang profil.';
       }
 
-      return null;
+      return false;
     } finally {
       if (!_isDisposed) {
-        _isSaving = false;
+        _isDeleting = false;
         notifyListeners();
       }
     }

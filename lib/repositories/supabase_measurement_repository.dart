@@ -27,7 +27,7 @@ class SupabaseMeasurementRepository implements MeasurementRepository {
   }
 
   @override
-  Future<void> deleteMeasurement(String id) async {
-    throw UnsupportedError('Penghapusan profil akan dibuat pada Tahap 11.');
+  Future<void> deleteMeasurement(String id) {
+    return _service.deleteMeasurement(id);
   }
 }

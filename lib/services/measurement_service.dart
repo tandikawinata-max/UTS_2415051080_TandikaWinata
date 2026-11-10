@@ -43,8 +43,6 @@ class MeasurementService {
           .single()
           .timeout(const Duration(seconds: 15));
     } on PostgrestException catch (error) {
-      // ID mungkin sudah tersimpan ketika respons percobaan
-      // sebelumnya tidak sampai ke aplikasi.
       if (error.code != '23505') rethrow;
 
       _ensureSession();
@@ -92,5 +90,22 @@ class MeasurementService {
     }
 
     return row;
+  }
+
+  Future<void> deleteMeasurement(String id) async {
+    _ensureSession();
+
+    final deleted = await _client
+        .from('body_measurements')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', userId)
+        .select('id')
+        .maybeSingle()
+        .timeout(const Duration(seconds: 15));
+
+    if (deleted == null) {
+      throw const MeasurementUnavailable();
+    }
   }
 }
