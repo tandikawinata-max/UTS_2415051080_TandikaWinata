@@ -7,7 +7,9 @@ import '../providers/measurement_provider.dart';
 import '../utils/measurement_validators.dart';
 
 class MeasurementFormScreen extends StatefulWidget {
-  const MeasurementFormScreen({super.key});
+  final BodyMeasurement? initialMeasurement;
+
+  const MeasurementFormScreen({super.key, this.initialMeasurement});
 
   @override
   State<MeasurementFormScreen> createState() => _MeasurementFormScreenState();
@@ -15,7 +17,6 @@ class MeasurementFormScreen extends StatefulWidget {
 
 class _MeasurementFormScreenState extends State<MeasurementFormScreen> {
   final _formKey = GlobalKey<FormState>();
-  final String _draftId = const Uuid().v4();
 
   final _controllers = {
     'label': TextEditingController(),
@@ -27,7 +28,45 @@ class _MeasurementFormScreenState extends State<MeasurementFormScreen> {
     'weight': TextEditingController(),
   };
 
-  DateTime _measuredAt = DateTime.now();
+  late final String _measurementId;
+  late DateTime _measuredAt;
+
+  bool get _isEditing => widget.initialMeasurement != null;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final initial = widget.initialMeasurement;
+
+    _measurementId = initial?.id ?? const Uuid().v4();
+    _measuredAt = initial?.measuredAt ?? DateTime.now();
+
+    if (initial != null) {
+      _controllers['label']!.text = initial.label;
+
+      final values = {
+        'chest': initial.chestCm,
+        'waist': initial.waistCm,
+        'hip': initial.hipCm,
+        'shoulder': initial.shoulderWidthCm,
+        'height': initial.heightCm,
+        'weight': initial.weightKg,
+      };
+
+      for (final entry in values.entries) {
+        _controllers[entry.key]!.text = _inputNumber(entry.value);
+      }
+    }
+  }
+
+  String _inputNumber(double? value) {
+    if (value == null) return '';
+
+    return value == value.truncateToDouble()
+        ? value.toStringAsFixed(0)
+        : value.toString();
+  }
 
   String get _dateText {
     final day = _measuredAt.day.toString().padLeft(2, '0');
@@ -41,11 +80,21 @@ class _MeasurementFormScreenState extends State<MeasurementFormScreen> {
   }
 
   Future<void> _pickDate() async {
+    final firstDate = DateTime(1900);
+    final today = DateUtils.dateOnly(DateTime.now());
+    final currentDate = DateUtils.dateOnly(_measuredAt);
+
+    final initialDate = currentDate.isBefore(firstDate)
+        ? firstDate
+        : currentDate.isAfter(today)
+        ? today
+        : currentDate;
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: _measuredAt,
-      firstDate: DateTime(1900),
-      lastDate: DateTime.now(),
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: today,
     );
 
     if (!mounted || picked == null) return;
@@ -64,7 +113,8 @@ class _MeasurementFormScreenState extends State<MeasurementFormScreen> {
     FocusScope.of(context).unfocus();
 
     final measurement = BodyMeasurement(
-      id: _draftId,
+      id: _measurementId,
+      userId: widget.initialMeasurement?.userId,
       label: _controllers['label']!.text.trim(),
       chestCm: _number('chest')!,
       waistCm: _number('waist'),
@@ -75,11 +125,12 @@ class _MeasurementFormScreenState extends State<MeasurementFormScreen> {
       measuredAt: _measuredAt,
     );
 
-    final saved = await state.createMeasurement(measurement);
+    final saved = _isEditing
+        ? await state.updateMeasurement(measurement)
+        : await state.createMeasurement(measurement);
 
     if (!mounted || saved == null) return;
 
-    // Tunggu tampilan memperbarui status isSaving dan PopScope.
     await WidgetsBinding.instance.endOfFrame;
 
     if (!mounted) return;
@@ -132,7 +183,9 @@ class _MeasurementFormScreenState extends State<MeasurementFormScreen> {
     return PopScope<BodyMeasurement>(
       canPop: !state.isSaving,
       child: Scaffold(
-        appBar: AppBar(title: const Text('Tambah Profil')),
+        appBar: AppBar(
+          title: Text(_isEditing ? 'Edit Profil' : 'Tambah Profil'),
+        ),
         body: SafeArea(
           child: Align(
             alignment: Alignment.topCenter,
@@ -221,7 +274,11 @@ class _MeasurementFormScreenState extends State<MeasurementFormScreen> {
                         onPressed: busy ? null : _save,
                         icon: const Icon(Icons.save_outlined),
                         label: Text(
-                          state.isSaving ? 'Menyimpan...' : 'Simpan profil',
+                          state.isSaving
+                              ? 'Menyimpan...'
+                              : _isEditing
+                              ? 'Simpan perubahan'
+                              : 'Simpan profil',
                         ),
                       ),
                     ],

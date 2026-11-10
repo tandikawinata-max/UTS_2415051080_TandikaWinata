@@ -18,10 +18,15 @@ class MeasurementProvider extends ChangeNotifier {
   MeasurementProvider(this._repository);
 
   List<BodyMeasurement> get measurements => _measurements;
+
   String? get activeMeasurementId => _activeMeasurementId;
+
   String? get errorMessage => _errorMessage;
+
   String? get saveErrorMessage => _saveErrorMessage;
+
   bool get isLoading => _isLoading;
+
   bool get isSaving => _isSaving;
 
   BodyMeasurement? get activeMeasurement {
@@ -31,7 +36,9 @@ class MeasurementProvider extends ChangeNotifier {
 
   BodyMeasurement? findById(String id) {
     for (final measurement in _measurements) {
-      if (measurement.id == id) return measurement;
+      if (measurement.id == id) {
+        return measurement;
+      }
     }
 
     return null;
@@ -143,6 +150,75 @@ class MeasurementProvider extends ChangeNotifier {
         _saveErrorMessage =
             'Penyimpanan belum dapat dikonfirmasi. '
             'Periksa koneksi, lalu coba lagi. '
+            'Isian tetap tersedia di formulir.';
+      }
+
+      return null;
+    } finally {
+      if (!_isDisposed) {
+        _isSaving = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<BodyMeasurement?> updateMeasurement(
+    BodyMeasurement measurement,
+  ) async {
+    if (_isDisposed || _isSaving) return null;
+
+    if (_isLoading) {
+      _saveErrorMessage =
+          'Profil sedang dimuat. Tunggu sebentar, lalu coba lagi.';
+      notifyListeners();
+      return null;
+    }
+
+    if (findById(measurement.id) == null) {
+      _saveErrorMessage =
+          'Profil tidak tersedia. Kembali ke daftar dan muat ulang.';
+      notifyListeners();
+      return null;
+    }
+
+    _isSaving = true;
+    _saveErrorMessage = null;
+    notifyListeners();
+
+    try {
+      final saved = await _repository.updateMeasurement(measurement);
+
+      if (_isDisposed) return null;
+
+      final updated = _measurements.map((item) {
+        return item.id == saved.id ? saved : item;
+      }).toList();
+
+      updated.sort((a, b) {
+        final dateOrder = b.measuredAt.compareTo(a.measuredAt);
+
+        return dateOrder != 0 ? dateOrder : a.id.compareTo(b.id);
+      });
+
+      _measurements = List<BodyMeasurement>.unmodifiable(updated);
+      _errorMessage = null;
+
+      return saved;
+    } on MeasurementUnavailable {
+      if (!_isDisposed) {
+        _saveErrorMessage =
+            'Profil sudah tidak tersedia atau akses akun berubah. '
+            'Kembali ke daftar dan muat ulang.';
+      }
+
+      return null;
+    } catch (error) {
+      if (!_isDisposed) {
+        debugPrint('Perubahan profil belum terkonfirmasi: $error');
+
+        _saveErrorMessage =
+            'Perubahan belum dapat dikonfirmasi. '
+            'Periksa koneksi, lalu coba simpan lagi. '
             'Isian tetap tersedia di formulir.';
       }
 

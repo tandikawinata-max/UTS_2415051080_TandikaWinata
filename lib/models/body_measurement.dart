@@ -51,8 +51,18 @@ class BodyMeasurement {
       'measured_at': measuredAt.toUtc().toIso8601String(),
     };
   }
+
+  Map<String, dynamic> toUpdateJson() {
+    final data = toInsertJson();
+    data.remove('id');
+    return data;
+  }
 }
 
 class MeasurementSaveConflict implements Exception {
   const MeasurementSaveConflict();
+}
+
+class MeasurementUnavailable implements Exception {
+  const MeasurementUnavailable();
 }

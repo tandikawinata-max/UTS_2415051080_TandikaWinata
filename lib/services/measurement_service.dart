@@ -72,4 +72,25 @@ class MeasurementService {
       return existing;
     }
   }
+
+  Future<Map<String, dynamic>> updateMeasurement(
+    BodyMeasurement measurement,
+  ) async {
+    _ensureSession();
+
+    final row = await _client
+        .from('body_measurements')
+        .update(measurement.toUpdateJson())
+        .eq('id', measurement.id)
+        .eq('user_id', userId)
+        .select()
+        .maybeSingle()
+        .timeout(const Duration(seconds: 15));
+
+    if (row == null) {
+      throw const MeasurementUnavailable();
+    }
+
+    return row;
+  }
 }

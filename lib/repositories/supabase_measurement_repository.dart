@@ -22,7 +22,8 @@ class SupabaseMeasurementRepository implements MeasurementRepository {
 
   @override
   Future<BodyMeasurement> updateMeasurement(BodyMeasurement measurement) async {
-    throw UnsupportedError('Perubahan profil akan dibuat pada Tahap 10.');
+    final row = await _service.updateMeasurement(measurement);
+    return BodyMeasurement.fromJson(row);
   }
 
   @override
