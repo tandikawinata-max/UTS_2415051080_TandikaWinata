@@ -34,12 +34,13 @@ class _SizeChartReviewScreenState extends State<SizeChartReviewScreen> {
   final _rows = <_EditableSizeRow>[];
 
   ChartUnit? _unit;
+  ChartBasis? _basis;
+  ChartRangeMeaning? _rangeMeaning;
   ChartMeasureType? _chestType;
   ChartMeasureType? _waistType;
   ChartMeasureType? _hipType;
 
   int _nextId = 0;
-  bool _checked = false;
   bool _submitted = false;
   String? _errorMessage;
 
@@ -50,10 +51,12 @@ class _SizeChartReviewScreenState extends State<SizeChartReviewScreen> {
     final previous = widget.initialChart;
     final sourceRows = previous?.inputRows ?? widget.draft.rows;
 
-    _unit = previous?.unit;
-    _chestType = previous?.chestType;
-    _waistType = previous?.waistType;
-    _hipType = previous?.hipType;
+    _unit = previous?.unit ?? widget.draft.unit;
+    _basis = previous?.basis ?? widget.draft.basis;
+    _rangeMeaning = previous?.rangeMeaning ?? widget.draft.rangeMeaning;
+    _chestType = previous?.chestType ?? widget.draft.chestType;
+    _waistType = previous?.waistType ?? widget.draft.waistType;
+    _hipType = previous?.hipType ?? widget.draft.hipType;
 
     for (final row in sourceRows) {
       _rows.add(_EditableSizeRow(_nextId++, row));
@@ -67,7 +70,6 @@ class _SizeChartReviewScreenState extends State<SizeChartReviewScreen> {
   void _change(VoidCallback action) {
     setState(() {
       action();
-      _checked = false;
       _errorMessage = null;
     });
   }
@@ -81,11 +83,9 @@ class _SizeChartReviewScreenState extends State<SizeChartReviewScreen> {
 
     final valid = _formKey.currentState!.validate();
 
-    if (!valid || !_checked) {
+    if (!valid) {
       setState(() {
-        _errorMessage = !valid
-            ? 'Periksa kembali kolom yang ditandai.'
-            : 'Centang konfirmasi setelah memeriksa tabel.';
+        _errorMessage = 'Periksa kembali kolom yang ditandai.';
       });
       return;
     }
@@ -95,9 +95,11 @@ class _SizeChartReviewScreenState extends State<SizeChartReviewScreen> {
         sourceImagePath: widget.imagePath,
         sourceOcrText: widget.ocrText,
         unit: _unit!,
-        chestType: _chestType!,
-        waistType: _waistType,
-        hipType: _hipType,
+        basis: _basis!,
+        rangeMeaning: _rangeMeaning,
+        chestType: _basis == ChartBasis.body ? null : _chestType,
+        waistType: _basis == ChartBasis.body ? null : _waistType,
+        hipType: _basis == ChartBasis.body ? null : _hipType,
         rows: _rows.map((row) => row.value).toList(),
       );
 
@@ -150,10 +152,13 @@ class _SizeChartReviewScreenState extends State<SizeChartReviewScreen> {
     return TextFormField(
       key: ValueKey('${row.id}_$field'),
       initialValue: value,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      keyboardType: TextInputType.text,
+      autocorrect: false,
+      enableSuggestions: false,
       textInputAction: TextInputAction.next,
       decoration: InputDecoration(
         labelText: label,
+        hintText: '94 atau 92 - 97',
         suffixText: _unit?.symbol,
         border: const OutlineInputBorder(),
         errorMaxLines: 3,
@@ -288,8 +293,14 @@ class _SizeChartReviewScreenState extends State<SizeChartReviewScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hasWaist = _rows.any((row) => row.value.waist.trim().isNotEmpty);
-    final hasHip = _rows.any((row) => row.value.hip.trim().isNotEmpty);
+    final hasWaist = _rows.any(
+      (row) => !SizeChartRules.isEmptyValue(row.value.waist),
+    );
+    final hasHip = _rows.any(
+      (row) => !SizeChartRules.isEmptyValue(row.value.hip),
+    );
+    final hasRange = _rows.any((row) => row.value.hasRange);
+    final garment = _basis == ChartBasis.garment;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Periksa tabel ukuran')),
@@ -307,7 +318,7 @@ class _SizeChartReviewScreenState extends State<SizeChartReviewScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Text(
-                      'Cocokkan setiap baris dengan gambar. '
+                      'Data terbaca sudah diisikan. Koreksi hanya bagian yang perlu. '
                       'Nama ukuran dan dada wajib diisi. '
                       'Pinggang, pinggul, dan bahu boleh dikosongkan '
                       'jika tidak tercantum.',
@@ -345,6 +356,28 @@ class _SizeChartReviewScreenState extends State<SizeChartReviewScreen> {
                       Text(widget.draft.warnings.join('\n\n')),
                     ],
                     const SizedBox(height: 24),
+                    DropdownButtonFormField<ChartBasis>(
+                      key: const ValueKey('chartBasis'),
+                      initialValue: _basis,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Jenis tabel *',
+                        border: OutlineInputBorder(),
+                        errorMaxLines: 2,
+                      ),
+                      items: [
+                        for (final value in ChartBasis.values)
+                          DropdownMenuItem(
+                            value: value,
+                            child: Text(value.label),
+                          ),
+                      ],
+                      onChanged: (value) => _change(() => _basis = value),
+                      validator: (value) => value == null
+                          ? 'Pilih jenis tabel sesuai keterangan sumber.'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
                     DropdownButtonFormField<ChartUnit>(
                       key: const ValueKey('chartUnit'),
                       initialValue: _unit,
@@ -367,42 +400,72 @@ class _SizeChartReviewScreenState extends State<SizeChartReviewScreen> {
                           value == null ? 'Pilih satuan.' : null,
                     ),
                     const SizedBox(height: 16),
-                    _typeField(
-                      fieldKey: 'chestType',
-                      label: 'Jenis pengukuran dada *',
-                      value: _chestType,
-                      requiredValue: true,
-                      onChanged: (value) {
-                        _change(() => _chestType = value);
-                      },
-                    ),
+                    if (garment)
+                      _typeField(
+                        fieldKey: 'chestType',
+                        label: 'Jenis pengukuran dada *',
+                        value: _chestType,
+                        requiredValue: true,
+                        onChanged: (value) {
+                          _change(() => _chestType = value);
+                        },
+                      ),
                     const SizedBox(height: 16),
-                    _typeField(
-                      fieldKey: 'waistType',
-                      label: 'Jenis pinggang, jika diisi',
-                      value: _waistType,
-                      requiredValue: hasWaist,
-                      onChanged: (value) {
-                        _change(() => _waistType = value);
-                      },
-                    ),
+                    if (garment && hasWaist)
+                      _typeField(
+                        fieldKey: 'waistType',
+                        label: 'Jenis pinggang, jika diisi',
+                        value: _waistType,
+                        requiredValue: hasWaist,
+                        onChanged: (value) {
+                          _change(() => _waistType = value);
+                        },
+                      ),
                     const SizedBox(height: 16),
-                    _typeField(
-                      fieldKey: 'hipType',
-                      label: 'Jenis pinggul, jika diisi',
-                      value: _hipType,
-                      requiredValue: hasHip,
-                      onChanged: (value) {
-                        _change(() => _hipType = value);
-                      },
-                    ),
+                    if (garment && hasHip)
+                      _typeField(
+                        fieldKey: 'hipType',
+                        label: 'Jenis pinggul, jika diisi',
+                        value: _hipType,
+                        requiredValue: hasHip,
+                        onChanged: (value) {
+                          _change(() => _hipType = value);
+                        },
+                      ),
+                    if (garment && hasRange) ...[
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<ChartRangeMeaning>(
+                        key: const ValueKey('rangeMeaning'),
+                        initialValue: _rangeMeaning,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Makna rentang pakaian *',
+                          border: OutlineInputBorder(),
+                          errorMaxLines: 2,
+                        ),
+                        items: [
+                          for (final value in ChartRangeMeaning.values)
+                            DropdownMenuItem(
+                              value: value,
+                              child: Text(value.label),
+                            ),
+                        ],
+                        onChanged: (value) =>
+                            _change(() => _rangeMeaning = value),
+                        validator: (value) => value == null
+                            ? 'Pilih makna rentang; tersedia pilihan belum diketahui.'
+                            : null,
+                      ),
+                    ],
                     const SizedBox(height: 12),
+                    Text(
+                      _basis == ChartBasis.body
+                          ? 'Dada, pinggang, dan pinggul merupakan lingkar tubuh. Rentang dibandingkan langsung dengan profil tanpa tambahan kelonggaran. Bahu tetap lebar.'
+                          : 'Lebar bentang pakaian dikalikan dua menjadi lingkar; bahu tidak dikalikan dua. Rentang regangan atau yang belum diketahui tidak langsung menjadi kandidat.',
+                    ),
+                    const SizedBox(height: 8),
                     const Text(
-                      'Lebar bentang adalah lebar pakaian saat dibentangkan '
-                      'rata. Nilainya dikalikan dua untuk menjadi lingkar. '
-                      'Bahu selalu berupa lebar dan tidak dikalikan dua.\n\n'
-                      'Masukkan angka asli pada gambar. '
-                      'Konversi dilakukan setelah tabel dikonfirmasi.',
+                      'Angka tunggal dan rentang diterima, misalnya 94 atau 92 - 97. Gunakan angka asli; kedua batas dikonversi setelah dikonfirmasi.',
                     ),
                     const SizedBox(height: 24),
                     for (final row in _rows) _rowCard(row),
@@ -421,22 +484,9 @@ class _SizeChartReviewScreenState extends State<SizeChartReviewScreen> {
                       label: const Text('Tambah ukuran'),
                     ),
                     const SizedBox(height: 16),
-                    CheckboxListTile(
-                      key: const ValueKey('confirmChartCheckbox'),
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      value: _checked,
-                      onChanged: (value) {
-                        setState(() {
-                          _checked = value ?? false;
-                          _errorMessage = null;
-                        });
-                      },
-                      title: const Text(
-                        'Saya sudah mencocokkan angka, satuan, dan jenis '
-                        'pengukuran dengan gambar. Tabel ini berisi ukuran '
-                        'pakaian, bukan ukuran tubuh.',
-                      ),
+                    const Text(
+                      'Gunakan angka asli pada screenshot. Dengan menekan Gunakan tabel ini, '
+                      'Anda mengonfirmasi angka, satuan, dan jenis tabel yang ditampilkan.',
                     ),
                     if (_errorMessage != null) ...[
                       const SizedBox(height: 12),
@@ -450,11 +500,11 @@ class _SizeChartReviewScreenState extends State<SizeChartReviewScreen> {
                       key: const ValueKey('saveReviewedChart'),
                       onPressed: _save,
                       icon: const Icon(Icons.check_circle_outline),
-                      label: const Text('Simpan tabel terverifikasi'),
+                      label: const Text('Gunakan tabel ini'),
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'Perubahan diterapkan setelah tombol simpan ditekan. '
+                      'Perubahan diterapkan setelah tombol Gunakan tabel ini ditekan. '
                       'Kembali tanpa menyimpan akan mengabaikan perubahan.',
                     ),
                   ],

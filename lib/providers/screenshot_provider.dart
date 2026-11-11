@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../models/ocr_document.dart';
 import '../models/reviewed_size_chart.dart';
 import '../repositories/screenshot_repository.dart';
 import '../services/size_chart_parser.dart';
@@ -13,6 +14,7 @@ class ScreenshotProvider extends ChangeNotifier {
 
   String? _imagePath;
   String _recognizedText = '';
+  SizeChartDraft _draft = SizeChartDraft(rows: [], warnings: []);
   String? _errorMessage;
   String? _noticeMessage;
 
@@ -35,7 +37,7 @@ class ScreenshotProvider extends ChangeNotifier {
   bool get hasImage => _imagePath != null;
 
   SizeChartDraft buildChartDraft() {
-    return const SizeChartParser().parse(_recognizedText);
+    return _draft;
   }
 
   bool confirmChart(ReviewedSizeChart chart, {required int expectedRevision}) {
@@ -138,17 +140,24 @@ class ScreenshotProvider extends ChangeNotifier {
     _reviewedChart = null;
     _phase = ScreenshotPhase.reading;
     _recognizedText = '';
+    _draft = SizeChartDraft(rows: [], warnings: []);
     _errorMessage = null;
     notifyListeners();
 
     try {
-      final text = await _repository.readText(path);
+      final repository = _repository;
+      final document = repository is StructuredScreenshotRepository
+          ? await (repository as StructuredScreenshotRepository).readDocument(
+              path,
+            )
+          : OcrDocument(text: await repository.readText(path));
 
       if (_disposed) {
         return;
       }
 
-      _recognizedText = text.trim();
+      _recognizedText = document.text.trim();
+      _draft = const SizeChartParser().parseDocument(document);
 
       if (_recognizedText.isEmpty) {
         _errorMessage =
@@ -175,6 +184,7 @@ class ScreenshotProvider extends ChangeNotifier {
     _reviewedChart = null;
     _imagePath = null;
     _recognizedText = '';
+    _draft = SizeChartDraft(rows: [], warnings: []);
     _errorMessage = null;
     _noticeMessage = null;
     notifyListeners();

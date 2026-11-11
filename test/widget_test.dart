@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:usize/main.dart';
+import 'package:usize/repositories/demo_measurement_repository.dart';
 import 'package:usize/widgets/measurement_card.dart';
+
+import 'scroll_helpers.dart';
 
 void main() {
   for (final width in [400.0, 1000.0]) {
@@ -12,13 +15,14 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      await tester.pumpWidget(const MyApp());
+      await tester.pumpWidget(MyApp(repository: DemoMeasurementRepository()));
 
+      await tester.pumpAndSettle();
       expect(find.text('Kenali ukuranmu'), findsOneWidget);
 
       final cards = find.byType(MeasurementCard);
 
-      await tester.ensureVisible(cards.first);
+      await reveal(tester, find.text('Profil Contoh A'));
       await tester.pumpAndSettle();
 
       expect(cards, findsNWidgets(3));
@@ -39,12 +43,12 @@ void main() {
   }
 
   testWidgets('Menu utama berpindah dan Back menuju Beranda', (tester) async {
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(MyApp(repository: DemoMeasurementRepository()));
 
     await tester.tap(find.text('Analisis'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Usize — Uji OCR'), findsOneWidget);
+    expect(find.text('Analisis screenshot'), findsOneWidget);
 
     await tester.tap(find.text('Riwayat'));
     await tester.pumpAndSettle();
@@ -63,11 +67,11 @@ void main() {
   });
 
   testWidgets('Tombol dashboard mengaktifkan menu Analisis', (tester) async {
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(MyApp(repository: DemoMeasurementRepository()));
 
     final button = find.text('Buka pembaca tabel');
 
-    await tester.ensureVisible(button);
+    await reveal(tester, button);
     await tester.tap(button);
     await tester.pumpAndSettle();
 
@@ -82,11 +86,11 @@ void main() {
   testWidgets('Detail menampilkan profil yang dipilih dari daftar', (
     tester,
   ) async {
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(MyApp(repository: DemoMeasurementRepository()));
 
     final listButton = find.text('Lihat semua profil');
 
-    await tester.ensureVisible(listButton);
+    await reveal(tester, listButton);
     await tester.tap(listButton);
     await tester.pumpAndSettle();
 
@@ -100,7 +104,7 @@ void main() {
 
     expect(find.text('Detail Profil'), findsOneWidget);
     expect(find.text('Profil Contoh B'), findsOneWidget);
-    expect(find.text('100.0 cm'), findsOneWidget);
+    expect(find.text('100 cm'), findsOneWidget);
     expect(find.text('Profil Contoh A'), findsNothing);
 
     await tester.pageBack();
@@ -111,6 +115,7 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
 
+    await reveal(tester, find.text('Kenali ukuranmu'), delta: -200);
     expect(find.text('Kenali ukuranmu'), findsOneWidget);
   });
 }

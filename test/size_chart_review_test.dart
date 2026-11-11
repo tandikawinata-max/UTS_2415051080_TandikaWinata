@@ -6,7 +6,7 @@ import 'package:usize/repositories/screenshot_repository.dart';
 import 'package:usize/screens/size_chart_review_screen.dart';
 import 'package:usize/services/size_chart_parser.dart';
 
-const sourceText = 'SIZE DADA BAHU\nM 50 40';
+const sourceText = 'UKURAN PAKAIAN\nSIZE DADA BAHU\nM 50 40';
 
 class ReviewTestRepository implements ScreenshotRepository {
   String? pickedPath = '/chart.png';
@@ -26,6 +26,7 @@ ReviewedSizeChart makeChart() {
     sourceImagePath: '/chart.png',
     sourceOcrText: sourceText,
     unit: ChartUnit.cm,
+    basis: ChartBasis.garment,
     chestType: ChartMeasureType.flatWidth,
     rows: const [SizeChartDraftRow(label: 'M', chest: '50', shoulder: '40')],
   );
@@ -71,9 +72,9 @@ void main() {
   test('rentang angka tidak dianggap sebagai satu angka', () {
     final draft = parser.parse('SIZE DADA BAHU\nM 90-96 40');
 
-    expect(draft.rows.single.chest, isEmpty);
+    expect(draft.rows.single.chest, '90-96');
     expect(draft.warnings, isNotEmpty);
-    expect(SizeChartRules.number('90-96'), isNotNull);
+    expect(SizeChartRules.number('90-96'), isNull);
     expect(SizeChartRules.number('94,5'), isNull);
     expect(SizeChartRules.number('0'), isNotNull);
   });
@@ -83,6 +84,7 @@ void main() {
       sourceImagePath: '/inch.png',
       sourceOcrText: '',
       unit: ChartUnit.inch,
+      basis: ChartBasis.garment,
       chestType: ChartMeasureType.flatWidth,
       waistType: ChartMeasureType.circumference,
       hipType: ChartMeasureType.flatWidth,
@@ -99,10 +101,10 @@ void main() {
 
     final row = chart.sizes.single;
 
-    expect(row.chestCm, closeTo(101.6, 0.0001));
-    expect(row.waistCm, closeTo(76.2, 0.0001));
-    expect(row.hipCm, closeTo(106.68, 0.0001));
-    expect(row.shoulderWidthCm, closeTo(40.64, 0.0001));
+    expect(row.chestCm.min, closeTo(101.6, 0.0001));
+    expect(row.waistCm!.min, closeTo(76.2, 0.0001));
+    expect(row.hipCm!.min, closeTo(106.68, 0.0001));
+    expect(row.shoulderWidthCm!.min, closeTo(40.64, 0.0001));
     expect(chart.inputRows.single.chest, '20');
   });
 
@@ -112,6 +114,7 @@ void main() {
         sourceImagePath: '/chart.png',
         sourceOcrText: '',
         unit: ChartUnit.cm,
+        basis: ChartBasis.garment,
         chestType: ChartMeasureType.circumference,
         rows: const [
           SizeChartDraftRow(label: 'M', chest: '96'),
@@ -128,6 +131,7 @@ void main() {
         sourceImagePath: '/chart.png',
         sourceOcrText: '',
         unit: ChartUnit.cm,
+        basis: ChartBasis.garment,
         chestType: ChartMeasureType.circumference,
         rows: const [SizeChartDraftRow(label: 'M', chest: '96', waist: '80')],
       ),
@@ -196,7 +200,7 @@ void main() {
     expect(state.reviewedChart, isNull);
   });
 
-  testWidgets('form memerlukan konfirmasi sebelum mengembalikan tabel', (
+  testWidgets('tombol gunakan mengonfirmasi tabel tanpa checkbox tambahan', (
     tester,
   ) async {
     ReviewedSizeChart? result;
@@ -248,24 +252,8 @@ void main() {
     await tester.tap(saveButton);
     await tester.pumpAndSettle();
 
-    expect(result, isNull);
-    expect(
-      find.text('Centang konfirmasi setelah memeriksa tabel.'),
-      findsOneWidget,
-    );
-
-    final checkbox = find.byKey(const ValueKey('confirmChartCheckbox'));
-
-    await tester.ensureVisible(checkbox);
-    await tester.tap(checkbox);
-    await tester.pumpAndSettle();
-
-    await tester.ensureVisible(saveButton);
-    await tester.tap(saveButton);
-    await tester.pumpAndSettle();
-
     expect(result, isNotNull);
-    expect(result!.sizes.single.chestCm, 100);
-    expect(result!.sizes.single.shoulderWidthCm, 40);
+    expect(result!.sizes.single.chestCm.min, 100);
+    expect(result!.sizes.single.shoulderWidthCm!.min, 40);
   });
 }

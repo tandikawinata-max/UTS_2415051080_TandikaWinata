@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../providers/measurement_provider.dart';
 import '../providers/screenshot_provider.dart';
+import '../providers/size_analysis_provider.dart';
 import '../repositories/screenshot_repository.dart';
 import 'analysis_history_screen.dart';
 import 'dashboard_screen.dart';
@@ -20,6 +22,7 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   late final ScreenshotProvider _screenshotProvider;
+  late final SizeAnalysisProvider _analysisProvider;
 
   int _selectedIndex = 0;
 
@@ -29,6 +32,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
     _screenshotProvider = ScreenshotProvider(
       widget.screenshotRepository ?? DeviceScreenshotRepository(),
+    );
+
+    _analysisProvider = SizeAnalysisProvider(
+      measurements: context.read<MeasurementProvider>(),
+      screenshots: _screenshotProvider,
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -60,14 +68,23 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   void dispose() {
+    _analysisProvider.dispose();
     _screenshotProvider.dispose();
+
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<ScreenshotProvider>.value(
-      value: _screenshotProvider,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<ScreenshotProvider>.value(
+          value: _screenshotProvider,
+        ),
+        ChangeNotifierProvider<SizeAnalysisProvider>.value(
+          value: _analysisProvider,
+        ),
+      ],
       child: PopScope<Object?>(
         canPop: _selectedIndex == 0,
         onPopInvokedWithResult: (didPop, result) {

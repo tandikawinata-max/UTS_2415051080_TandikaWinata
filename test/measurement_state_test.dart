@@ -4,6 +4,8 @@ import 'package:usize/models/body_measurement.dart';
 import 'package:usize/providers/measurement_provider.dart';
 import 'package:usize/repositories/demo_measurement_repository.dart';
 
+import 'scroll_helpers.dart';
+
 class FailingOnceRepository extends DemoMeasurementRepository {
   bool _shouldFail = true;
 
@@ -68,7 +70,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('Profil gagal dimuat. Silakan coba lagi.'),
+      find.text(
+        'Profil belum dapat dimuat. Periksa koneksi internet, lalu coba lagi.',
+      ),
       findsOneWidget,
     );
 
@@ -85,12 +89,12 @@ void main() {
   testWidgets('Profil aktif digunakan bersama oleh Beranda dan Analisis', (
     tester,
   ) async {
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(MyApp(repository: DemoMeasurementRepository()));
     await tester.pumpAndSettle();
 
     final listButton = find.text('Lihat semua profil');
 
-    await tester.ensureVisible(listButton);
+    await reveal(tester, listButton);
     await tester.tap(listButton);
     await tester.pumpAndSettle();
 
@@ -113,7 +117,7 @@ void main() {
 
     final activeProfile = find.text('Profil aktif: Profil Contoh B');
 
-    await tester.ensureVisible(activeProfile);
+    await reveal(tester, activeProfile, delta: -200);
 
     expect(activeProfile, findsOneWidget);
 

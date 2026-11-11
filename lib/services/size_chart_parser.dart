@@ -1,3 +1,5 @@
+import '../models/ocr_document.dart';
+import 'spatial_size_chart_parser.dart';
 import '../models/reviewed_size_chart.dart';
 
 class SizeChartParser {
@@ -9,10 +11,13 @@ class SizeChartParser {
     r'^(?:XXXS|XXS|XS|S|M|L|XL|XXL|XXXL|[2-6]XL|[2-6]XS|ONESIZE|ALLSIZE)$',
   );
 
-  static final _numberPattern = RegExp(r'^\d+(?:[.,]\d{1,2})?$');
+  static final _numberPattern = RegExp(
+    r'^\d+(?:[.,]\d{1,2})?(?:-\d+(?:[.,]\d{1,2})?)?$',
+  );
 
   static const _aliases = {
-    '#C': r'\b(LINGKAR\s+DADA|LEBAR\s+DADA|DADA|CHEST|BUST|LD)\b',
+    '#C':
+        r'\b(LINGKAR\s+DADA|LEBAR\s+DADA|DADA|CHEST(?:\s+(?:WIDTH|CIRCUMFERENCE))?|BUST(?:\s+(?:WIDTH|CIRCUMFERENCE))?|LD)\b',
     '#W': r'\b(LINGKAR\s+PINGGANG|LEBAR\s+PINGGANG|PINGGANG|WAIST)\b',
     '#H': r'\b(LINGKAR\s+PINGGUL|LEBAR\s+PINGGUL|PINGGUL|PANGGUL|HIPS?)\b',
     '#S': r'\b(LEBAR\s+BAHU|SHOULDER\s+WIDTH|SHOULDERS?|BAHU)\b',
@@ -20,8 +25,20 @@ class SizeChartParser {
         r'\b(PANJANG\s+(BAJU|BLOUSE|GAMIS|LENGAN)|BODY\s+LENGTH|SLEEVE\s+LENGTH|LENGTH)\b',
   };
 
-  SizeChartDraft parse(String text) {
-    var normalized = text.toUpperCase();
+  SizeChartDraft parse(String text) => enrichChartDraft(_parseText(text), text);
+
+  SizeChartDraft parseDocument(OcrDocument document) {
+    if (document.tokens.isEmpty) return parse(document.text);
+    return const SpatialSizeChartParser().parse(document);
+  }
+
+  SizeChartDraft _parseText(String text) {
+    var normalized = SizeChartRules.normalize(text).toUpperCase();
+    // Join endpoints only on the same text line, before splitting into cells.
+    normalized = normalized.replaceAllMapped(
+      RegExp(r'(\d+(?:[.,]\d{1,2})?)[ \t]*-[ \t]*(\d+(?:[.,]\d{1,2})?)'),
+      (match) => '${match[1]}-${match[2]}',
+    );
 
     normalized = normalized.replaceAll(
       RegExp(r'\b(?:ONE|ALL)\s+SIZE\b'),
