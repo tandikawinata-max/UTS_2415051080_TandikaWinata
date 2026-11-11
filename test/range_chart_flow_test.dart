@@ -1,3 +1,4 @@
+import 'package:usize/repositories/demo_analysis_history_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -73,6 +74,7 @@ void main() {
         value: measurements,
         child: MaterialApp(
           home: MainNavigationScreen(
+            historyRepository: DemoAnalysisHistoryRepository(),
             screenshotRepository: RangeScreenshotRepository(heading),
           ),
         ),

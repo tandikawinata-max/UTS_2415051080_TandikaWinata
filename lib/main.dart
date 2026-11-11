@@ -3,6 +3,11 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'providers/measurement_provider.dart';
+import 'repositories/analysis_history_repository.dart';
+import 'repositories/demo_analysis_history_repository.dart';
+import 'repositories/supabase_analysis_history_repository.dart';
+import 'services/analysis_history_service.dart';
+import 'theme/usize_theme.dart';
 import 'providers/session_provider.dart';
 import 'repositories/measurement_repository.dart';
 import 'repositories/session_repository.dart';
@@ -26,13 +31,17 @@ Future<void> main() async {
 class MyApp extends StatelessWidget {
   // Repository dapat disuntikkan oleh pengujian.
   final MeasurementRepository? repository;
+  final AnalysisHistoryRepository? historyRepository;
 
-  const MyApp({super.key, this.repository});
+  const MyApp({super.key, this.repository, this.historyRepository});
 
   @override
   Widget build(BuildContext context) {
     if (repository != null) {
-      return _ProfileApp(repository: repository!);
+      return _ProfileApp(
+        repository: repository!,
+        historyRepository: historyRepository ?? DemoAnalysisHistoryRepository(),
+      );
     }
 
     final client = Supabase.instance.client;
@@ -61,6 +70,9 @@ class _SessionApp extends StatelessWidget {
 
     return _ProfileApp(
       key: ValueKey(userId),
+      historyRepository: SupabaseAnalysisHistoryRepository(
+        AnalysisHistoryService(Supabase.instance.client, userId),
+      ),
       repository: SupabaseMeasurementRepository(
         MeasurementService(Supabase.instance.client, userId),
       ),
@@ -70,14 +82,21 @@ class _SessionApp extends StatelessWidget {
 
 class _ProfileApp extends StatelessWidget {
   final MeasurementRepository repository;
+  final AnalysisHistoryRepository historyRepository;
 
-  const _ProfileApp({super.key, required this.repository});
+  const _ProfileApp({
+    super.key,
+    required this.repository,
+    required this.historyRepository,
+  });
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => MeasurementProvider(repository)..loadMeasurements(),
-      child: const _UsizeMaterialApp(home: MainNavigationScreen()),
+      child: _UsizeMaterialApp(
+        home: MainNavigationScreen(historyRepository: historyRepository),
+      ),
     );
   }
 }
@@ -92,11 +111,7 @@ class _UsizeMaterialApp extends StatelessWidget {
     return MaterialApp(
       title: 'Usize',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-        scaffoldBackgroundColor: const Color(0xFFF7F8FC),
-        useMaterial3: true,
-      ),
+      theme: UsizeTheme.light,
       home: home,
     );
   }

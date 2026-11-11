@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../providers/measurement_provider.dart';
 import '../providers/screenshot_provider.dart';
+import '../providers/analysis_history_provider.dart';
+import '../repositories/analysis_history_repository.dart';
+import '../providers/measurement_provider.dart';
 import '../providers/size_analysis_provider.dart';
 import '../repositories/screenshot_repository.dart';
 import 'analysis_history_screen.dart';
@@ -13,8 +15,13 @@ import 'ocr_test_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final ScreenshotRepository? screenshotRepository;
+  final AnalysisHistoryRepository historyRepository;
 
-  const MainNavigationScreen({super.key, this.screenshotRepository});
+  const MainNavigationScreen({
+    super.key,
+    this.screenshotRepository,
+    required this.historyRepository,
+  });
 
   @override
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
@@ -22,6 +29,7 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   late final ScreenshotProvider _screenshotProvider;
+  late final AnalysisHistoryProvider _historyProvider;
   late final SizeAnalysisProvider _analysisProvider;
 
   int _selectedIndex = 0;
@@ -29,6 +37,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   void initState() {
     super.initState();
+
+    _historyProvider = AnalysisHistoryProvider(widget.historyRepository);
 
     _screenshotProvider = ScreenshotProvider(
       widget.screenshotRepository ?? DeviceScreenshotRepository(),
@@ -41,6 +51,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        unawaited(_historyProvider.loadHistory());
         unawaited(_recoverScreenshot());
       }
     });
@@ -68,9 +79,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   void dispose() {
+    _historyProvider.dispose();
     _analysisProvider.dispose();
     _screenshotProvider.dispose();
-
     super.dispose();
   }
 
@@ -78,6 +89,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider<AnalysisHistoryProvider>.value(
+          value: _historyProvider,
+        ),
         ChangeNotifierProvider<ScreenshotProvider>.value(
           value: _screenshotProvider,
         ),
@@ -96,7 +110,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           body: IndexedStack(
             index: _selectedIndex,
             children: [
-              DashboardScreen(onOpenAnalysis: () => _selectTab(1)),
+              DashboardScreen(
+                onOpenAnalysis: () => _selectTab(1),
+                onOpenHistory: () => _selectTab(2),
+              ),
               const OcrTestScreen(),
               const AnalysisHistoryScreen(),
             ],

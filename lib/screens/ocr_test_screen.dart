@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../models/reviewed_size_chart.dart';
 import '../providers/measurement_provider.dart';
+import '../providers/analysis_history_provider.dart';
 import '../providers/screenshot_provider.dart';
 import '../providers/size_analysis_provider.dart';
 import '../widgets/empty_state.dart';
@@ -83,10 +84,16 @@ class OcrTestScreen extends StatelessWidget {
       );
       return;
     }
+    final history = context.read<AnalysisHistoryProvider>();
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (_) => ChangeNotifierProvider<SizeAnalysisProvider>.value(
-          value: analysis,
+        builder: (_) => MultiProvider(
+          providers: [
+            ChangeNotifierProvider<SizeAnalysisProvider>.value(value: analysis),
+            ChangeNotifierProvider<AnalysisHistoryProvider>.value(
+              value: history,
+            ),
+          ],
           child: const SizeAnalysisScreen(),
         ),
       ),

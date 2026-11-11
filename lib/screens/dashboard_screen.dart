@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/measurement_provider.dart';
+import '../providers/analysis_history_provider.dart';
+import '../widgets/analysis_history_tile.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/logout_button.dart';
 import '../widgets/measurement_card.dart';
@@ -12,14 +14,20 @@ import 'measurement_list_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   final VoidCallback onOpenAnalysis;
+  final VoidCallback onOpenHistory;
 
-  const DashboardScreen({super.key, required this.onOpenAnalysis});
+  const DashboardScreen({
+    super.key,
+    required this.onOpenAnalysis,
+    required this.onOpenHistory,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final state = context.watch<MeasurementProvider>();
     final measurements = state.measurements;
+    final history = context.watch<AnalysisHistoryProvider>();
 
     return Scaffold(
       appBar: AppBar(
@@ -93,7 +101,7 @@ class DashboardScreen extends StatelessWidget {
                             const SizedBox(height: 8),
                             Text(
                               'Pilih screenshot dari galeri '
-                              'dan periksa teks yang terbaca.',
+                              'dan periksa tabel yang terisi otomatis.',
                               style: TextStyle(
                                 color: theme.colorScheme.onPrimaryContainer,
                               ),
@@ -178,13 +186,27 @@ class DashboardScreen extends StatelessWidget {
                       subtitle: 'Tempat melihat kembali hasil yang disimpan.',
                     ),
                     const SizedBox(height: 16),
-                    const EmptyState(
-                      icon: Icons.history,
-                      title: 'Belum ada analisis tersimpan',
-                      message:
-                          'Hasil analisis yang kamu simpan '
-                          'akan muncul di sini.',
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: onOpenHistory,
+                        icon: const Icon(Icons.history),
+                        label: const Text('Lihat semua riwayat'),
+                      ),
                     ),
+                    if (history.isLoading) const LinearProgressIndicator(),
+                    if (history.loadError != null) Text(history.loadError!),
+                    if (history.items.isEmpty &&
+                        !history.isLoading &&
+                        history.loadError == null)
+                      const EmptyState(
+                        icon: Icons.history,
+                        title: 'Belum ada analisis tersimpan',
+                        message:
+                            'Hasil analisis yang kamu simpan akan muncul di sini.',
+                      ),
+                    for (final entry in history.items.take(3))
+                      AnalysisHistoryTile(entry: entry),
                   ],
                 ),
               ),
