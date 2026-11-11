@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'config/app_configuration.dart';
+import 'screens/app_startup.dart';
 import 'providers/measurement_provider.dart';
 import 'repositories/analysis_history_repository.dart';
 import 'repositories/demo_analysis_history_repository.dart';
@@ -17,15 +19,28 @@ import 'screens/main_navigation_screen.dart';
 import 'services/measurement_service.dart';
 import 'services/session_service.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  runApp(AppStartup(initialize: _initialize, child: const MyApp()));
+}
 
-  await Supabase.initialize(
-    url: const String.fromEnvironment('SUPABASE_URL'),
-    publishableKey: const String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY'),
-  );
-
-  runApp(const MyApp());
+Future<void> _initialize() async {
+  const configuration = AppConfiguration.fromEnvironment();
+  configuration.validate();
+  try {
+    await Supabase.initialize(
+      url: configuration.supabaseUrl,
+      publishableKey: configuration.supabasePublishableKey,
+    );
+  } catch (_) {
+    // Bersihkan inisialisasi parsial sebelum mencoba lagi, tanpa logout.
+    try {
+      await Supabase.instance.dispose();
+    } catch (_) {
+      // Client mungkin belum sempat terbentuk.
+    }
+    rethrow;
+  }
 }
 
 class MyApp extends StatelessWidget {

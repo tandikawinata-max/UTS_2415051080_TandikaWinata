@@ -33,6 +33,14 @@ class AnalysisResultDetails extends StatelessWidget {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
+                // Judul dua baris memerlukan ruang tambahan saat font diperbesar.
+                headingRowHeight:
+                    56 *
+                    (MediaQuery.textScalerOf(context).scale(14) / 14).clamp(
+                      1.0,
+                      double.infinity,
+                    ),
+                dataRowMaxHeight: double.infinity,
                 columns: [
                   const DataColumn(label: Text('Bagian')),
                   const DataColumn(label: Text('Tubuh\n(cm)')),
@@ -146,6 +154,13 @@ class AnalysisResultDetails extends StatelessWidget {
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: DataTable(
+                  headingRowHeight:
+                      56 *
+                      (MediaQuery.textScalerOf(context).scale(14) / 14).clamp(
+                        1.0,
+                        double.infinity,
+                      ),
+                  dataRowMaxHeight: double.infinity,
                   columns: const [
                     DataColumn(label: Text('Ukuran')),
                     DataColumn(label: Text('Dada')),

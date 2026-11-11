@@ -4,7 +4,7 @@
 
 Usize merupakan aplikasi Flutter Android yang dikembangkan untuk membantu pengguna memilih ukuran pakaian berdasarkan ukuran tubuh pribadi dan tabel ukuran produk.
 
-Alur yang direncanakan meliputi input ukuran tubuh, impor screenshot tabel ukuran, pembacaan teks menggunakan OCR, verifikasi tabel, serta analisis kecocokan ukuran.
+Alur utama: profil tubuh → screenshot → tabel terisi otomatis → koreksi bila diperlukan → analisis → simpan hasil. Input tabel manual tersedia sebagai cadangan.
 
 Proyek ini dibuat untuk UTS Pemrograman Mobile. Versi awal berfokus pada pakaian atasan dengan ukuran tubuh yang dimasukkan secara manual.
 
@@ -37,19 +37,19 @@ Pengembangan Usize menggunakan branch `usize` pada repositori yang juga menyimpa
 | Preview gambar                      | Berhasil diuji                      |
 | OCR gambar berisi teks sederhana    | Berhasil diuji                      |
 | Pesan ketika teks tidak ditemukan   | Berhasil ditampilkan                |
-| Dashboard                           | Dalam pengerjaan Tahap 04           |
+| Dashboard                           | Terintegrasi dengan profil dan riwayat |
 | Tiga reusable widgets               | Disiapkan pada Tahap 04             |
-| Layout compact dan wide             | Menunggu konfirmasi hasil pengujian |
-| Navigasi utama dan detail profil    | Direncanakan pada Tahap 05          |
-| Shared state dengan Provider        | Direncanakan pada Tahap 06          |
-| Panduan pengukuran dari REST API    | Direncanakan pada Tahap 07          |
-| Database dan CRUD profil            | Direncanakan pada Tahap 08–11       |
-| Penyempurnaan impor screenshot      | Direncanakan pada Tahap 12          |
-| Koreksi dan verifikasi tabel OCR    | Direncanakan pada Tahap 13          |
-| Analisis kecocokan ukuran           | Direncanakan pada Tahap 14          |
-| Penyimpanan riwayat analisis        | Direncanakan pada Tahap 15          |
+| Layout compact dan wide             | Diuji otomatis termasuk teks 200% |
+| Navigasi utama dan detail profil    | Diimplementasikan pada Tahap 05    |
+| Shared state dengan Provider        | Diimplementasikan pada Tahap 06    |
+| Panduan pengukuran dari REST API    | Diimplementasikan pada Tahap 07    |
+| Database dan CRUD profil            | Diimplementasikan pada Tahap 08–11 |
+| Penyempurnaan impor screenshot      | Diimplementasikan pada Tahap 12    |
+| Koreksi dan verifikasi tabel OCR    | Tahap 13, direvisi bersama Tahap 14 |
+| Analisis kecocokan ukuran           | Tahap 14, mendukung angka dan rentang |
+| Penyimpanan riwayat analisis        | Diimplementasikan pada Tahap 15    |
 
-Profil pada dashboard Tahap 04 menggunakan data contoh untuk menguji tampilan.
+Mode aplikasi memakai akun Supabase. Repository demo hanya digunakan bila disuntikkan secara eksplisit, terutama dalam pengujian. Bukti pemeriksaan terbaru dan status APK tersedia pada dokumentasi Tahap 16.
 
 ## Tech Stack
 
@@ -62,9 +62,9 @@ Profil pada dashboard Tahap 04 menggunakan data contoh untuk menguji tampilan.
 | `google_mlkit_text_recognition` | Pembacaan teks menggunakan ML Kit             |
 | `flutter_test`                  | Pengujian widget                              |
 | Git dan GitHub                  | Pengelolaan versi serta progres pengembangan  |
-| Provider + ChangeNotifier       | Rencana pengelolaan shared state              |
-| HTTP REST client                | Rencana pengambilan panduan pengukuran        |
-| Supabase PostgreSQL             | Rencana penyimpanan profil dan hasil analisis |
+| Provider + ChangeNotifier       | Pengelolaan shared state                     |
+| HTTP REST client                | Pengambilan panduan pengukuran               |
+| Supabase PostgreSQL             | Penyimpanan profil dan hasil analisis        |
 
 Versi dependency tercatat dalam `pubspec.yaml` dan `pubspec.lock`.
 
@@ -76,10 +76,12 @@ Versi dependency tercatat dalam `pubspec.yaml` dan `pubspec.lock`.
 | `lib/models/`       | Representasi data aplikasi                       |
 | `lib/services/`     | Akses OCR, REST API, dan database                |
 | `lib/repositories/` | Kontrak dan pengelolaan akses data               |
-| `lib/providers/`    | Pengelolaan state aplikasi pada tahap berikutnya |
+| `lib/providers/`    | Pengelolaan state aplikasi                       |
+| `lib/config/`       | Validasi konfigurasi publik                     |
 | `lib/screens/`      | Halaman aplikasi                                 |
 | `lib/widgets/`      | Komponen tampilan yang digunakan ulang           |
 | `test/`             | Pengujian aplikasi                               |
+| `tool/`             | Pemeriksaan dan build APK                        |
 
 ### Model Data
 
@@ -102,11 +104,11 @@ Jenis ukuran dan satuan disimpan secara eksplisit agar lingkar tubuh, lingkar pa
 
 ## Arsitektur Aplikasi
 
-Alur akses data yang dituju adalah UI → Provider → Repository → Service/Data Source → REST API atau Database.
+Alur akses data adalah UI → Provider → Repository → Service/Data Source → REST API atau Database.
 
-Provider akan mengelola data, loading, error, dan profil aktif. Repository menyediakan operasi pengelolaan data, sedangkan service menangani komunikasi dengan sumber data.
+Provider mengelola data, loading, error, dan profil aktif. Repository menyediakan operasi pengelolaan data, sedangkan service menangani komunikasi dengan sumber data.
 
-Pada prototipe OCR, state lokal halaman menggunakan `setState`. Pemrosesan teks dipisahkan ke `OcrService`.
+State screenshot dikelola ScreenshotProvider. OcrService menyediakan teks dan koordinat untuk parser tabel; hasil dapat dikoreksi sebelum analisis.
 
 ## Tampilan Responsif
 
@@ -122,19 +124,17 @@ Dashboard menggunakan `LayoutBuilder` untuk menyesuaikan susunan kartu berdasark
 
 ## REST API
 
-REST API yang direncanakan adalah Measurement Guide API untuk menyediakan panduan pengukuran tubuh.
+Panduan pengukuran diambil melalui GET `/rest/v1/measurement_guides` pada proyek Supabase yang dikonfigurasi.
 
 Integrasi pada Tahap 07 mencakup operasi GET, konversi JSON menjadi model Dart, dan penampilan data pada halaman panduan.
 
-Halaman tersebut akan memiliki loading, empty, dan error state serta tombol coba lagi.
-
-Endpoint aktif akan dicantumkan setelah implementasi selesai.
+Halaman tersebut memiliki loading, empty, dan error state serta tombol coba lagi.
 
 ## Backend dan Database
 
-Backend yang direncanakan adalah Supabase PostgreSQL.
+Backend menggunakan Supabase PostgreSQL.
 
-Tabel utama `body_measurements` direncanakan memiliki kolom berikut.
+Tabel utama `body_measurements` mencakup kolom berikut; definisi lengkap tersedia pada folder supabase.
 
 | Kolom         | Kegunaan               |
 | ------------- | ---------------------- |
@@ -148,7 +148,7 @@ Tabel utama `body_measurements` direncanakan memiliki kolom berikut.
 
 CRUD profil dikembangkan pada Tahap 08–11. Penyimpanan hasil analisis menggunakan tabel `fit_analyses` pada Tahap 15.
 
-Autentikasi dan Row Level Security akan digunakan untuk membatasi akses data berdasarkan pengguna.
+Autentikasi dan Row Level Security membatasi akses data berdasarkan pengguna setelah SQL diterapkan.
 
 Password, token server, `service_role` key, dan keystore disimpan di luar repositori.
 
@@ -174,10 +174,10 @@ cd UTS_2415051080_TandikaWinata
 flutter doctor -v
 flutter pub get
 flutter devices
-flutter run
+flutter run --dart-define-from-file=config/local.json
 ```
 
-Pilih perangkat Android ketika diminta.
+Siapkan config/local.json dengan URL HTTPS dan publishable key proyek Supabase. Terapkan SQL profil dan riwayat pada proyek yang sama. Pilih perangkat Android ketika diminta.
 
 Untuk proyek yang sudah tersedia di laptop, buka folder yang berisi `pubspec.yaml`, lalu jalankan mulai dari `flutter pub get`.
 
@@ -186,7 +186,7 @@ Untuk proyek yang sudah tersedia di laptop, buka folder yang berisi `pubspec.yam
 1. Siapkan gambar PNG atau JPG dengan tulisan yang jelas.
 2. Masukkan gambar ke HP atau emulator Android.
 3. Buka aplikasi Usize.
-4. Pada dashboard Tahap 04, tekan **Buka pembaca tabel**.
+4. Pada dashboard, tekan **Buka pembaca tabel**.
 5. Tekan **Pilih screenshot**.
 6. Pilih gambar dan tunggu pemrosesan selesai.
 7. Bandingkan hasil OCR dengan tulisan serta angka pada gambar asli.
@@ -195,17 +195,19 @@ Pada versi Tahap 03, aplikasi langsung membuka halaman uji OCR.
 
 File yang diseret dari laptop ke emulator biasanya tersedia di folder Downloads. Gunakan menu jelajah file jika gambar belum muncul pada tab foto.
 
-Parsing tabel dan verifikasi pengguna akan dikembangkan pada Tahap 13. Pemulihan gambar ketika Android menghentikan aplikasi saat pemilih gambar terbuka direncanakan pada Tahap 12.
+Parsing tabel, koreksi rentang dan pemulihan screenshot sudah diimplementasikan. Perilaku native Android dan akurasi pada gambar nyata tetap diperiksa melalui checklist Tahap 16.
 
 ## Pengujian
 
 Jalankan pemeriksaan berikut dari folder utama proyek.
 
 ```powershell
-dart format lib test
+dart format lib test tool
 flutter analyze
 flutter test
 ```
+
+Catatan berikut merupakan hasil pengembangan awal Tahap 03–04, bukan status terbaru. Hasil terbaru ada di [docs/testing/tahap16.md](docs/testing/tahap16.md).
 
 | Skenario                               | Hasil yang telah dicatat              |
 | -------------------------------------- | ------------------------------------- |
@@ -235,7 +237,7 @@ Screenshot akan ditambahkan setelah hasil pengujian tersedia. Simpan gambar doku
 Setelah gambar tersedia, gunakan format berikut untuk menampilkannya.
 
 ```markdown
-![Dashboard Usize](docs/screenshots/tahap04_dashboard.png)
+Tambahkan screenshot perangkat setelah pengujian nyata; hasil widget test tidak digunakan sebagai bukti galeri/OCR native.
 ```
 
 Dokumentasi akhir UTS akan dilengkapi dengan screenshot Home, List, Detail, Create, Edit, layout compact dan wide, data REST API, serta data database.
@@ -265,3 +267,59 @@ Dokumentasi akhir UTS akan dilengkapi dengan screenshot Home, List, Detail, Crea
 Setiap tahap diperiksa, di-commit, dan di-push secara bertahap. Target pengembangan adalah 17 commit utama Usize.
 
 Periksa riwayat commit Usize dengan perintah berikut.
+
+
+## Tahap 14 — Tabel otomatis dan analisis ukuran (termasuk revisi Tahap 13)
+
+Alur terbaru: screenshot → tabel terisi otomatis → koreksi bila diperlukan → analisis.
+Bagian ini menggantikan ketentuan pemeriksaan manual/checkbox Tahap 13 di atas.
+
+OCR kini mempertahankan koordinat elemen. Parser menyusun tabel menurut posisi,
+mempertahankan sel kosong, dan mengenali satuan/jenis pengukuran dari keterangan yang jelas.
+Pratinjau menampilkan angka sumber; tombol koreksi menjadi pilihan. Input manual menjadi cadangan.
+
+Angka tunggal dan rentang seperti `92 - 97`, `92–97`, atau `92,5–97,5` diterima.
+Kedua batas disimpan; angka tidak diganti dengan rata-rata. Jenis tabel disimpulkan dari
+keterangan sumber yang eksplisit, atau dipilih sekali tanpa mengetik ulang angka.
+
+Tabel ukuran tubuh dicocokkan langsung dengan rentang, tanpa tambahan kelonggaran.
+Untuk ukuran pakaian jadi, analisis memakai target Rapat (2–4 cm), Reguler (4–10 cm),
+atau Longgar (10–18 cm). Rentang variasi pakaian dinilai pada kedua batasnya;
+rentang regangan atau rentang yang maknanya belum diketahui memerlukan informasi tambahan.
+Hasil berisi kandidat, alasan, dan kondisi data belum lengkap/sebagian cocok/tidak ada kandidat.
+Ini aturan awal Usize, bukan standar semua merek.
+
+Panduan, batasan parser, fixture, dan checklist Android: [docs/testing/tahap14.md](docs/testing/tahap14.md).
+Hasil masih sementara; riwayat permanen belum ditambahkan. Seluruh revisi ini satu commit Tahap 14.
+
+
+## Tahap 15 — Riwayat analisis dan penyempurnaan tampilan
+
+Alur lengkap: screenshot → tabel otomatis → koreksi bila diperlukan → analisis → Simpan hasil → riwayat/detail.
+Hasil disimpan ke Supabase `fit_analyses` milik akun yang sedang masuk. Snapshot mencakup profil tubuh,
+angka sumber, satuan/jenis tabel, kedua batas rentang, perbandingan, rekomendasi, catatan, dan versi aturan.
+Riwayat tidak dihitung ulang atau ikut dihapus ketika profil tubuh berubah/dihapus.
+
+Daftar mendukung muat ulang dan halaman berikutnya; detail dibuka berdasarkan ID. Hapus membutuhkan
+konfirmasi. Percobaan simpan ulang memakai ID hasil yang sama agar respons jaringan yang hilang tidak
+membuat duplikasi. Akses baca/simpan/hapus dilindungi RLS; UPDATE tidak diberikan untuk hasil historis.
+
+Tema global menggunakan palet #b7ccc8, #27818a, #99c0d1, #d0d0d2 dengan bottom navigation.
+Berkas screenshot asli belum diunggah; yang disimpan adalah data tabel dan hasil analisis.
+
+Jalankan `supabase/fit_analyses.sql` pada proyek Supabase sebelum mencoba penyimpanan akun.
+Panduan pemasangan: [docs/testing/penerapan_tahap15.md](docs/testing/penerapan_tahap15.md).
+Rincian pengujian dan batasan: [docs/testing/tahap15.md](docs/testing/tahap15.md).
+
+
+## Tahap 16 — Pengujian menyeluruh dan persiapan verifikasi APK
+
+- Layar pembukaan aplikasi dengan loading, penjelasan konfigurasi tidak valid, dan retry.
+- Header tabel menyesuaikan pembesaran teks agar judul dua baris tidak terpotong.
+- Tambahan pengujian lebar 320/390/1024, teks 200%, keyboard, simpan riwayat, dan Back.
+- Perintah pemeriksaan: `dart run tool/verify_release.dart`; gunakan `--checks-only` jika tanpa APK.
+- Hasil pemeriksaan kode: 141 tes lolos, analyzer tanpa issue, format sesuai.
+- APK dan fitur Android/Supabase nyata belum terverifikasi; tidak ada APK yang disertakan.
+
+Panduan pemasangan: [docs/testing/penerapan_tahap16.md](docs/testing/penerapan_tahap16.md).
+Hasil, keterbatasan, dan checklist perangkat: [docs/testing/tahap16.md](docs/testing/tahap16.md).
