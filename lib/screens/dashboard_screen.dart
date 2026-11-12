@@ -9,6 +9,7 @@ import '../widgets/logout_button.dart';
 import '../widgets/measurement_card.dart';
 import '../widgets/measurement_status_card.dart';
 import '../widgets/section_header.dart';
+import '../widgets/body_scan_entry_card.dart';
 import 'measurement_guide_screen.dart';
 import 'measurement_list_screen.dart';
 
@@ -76,6 +77,8 @@ class DashboardScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 20),
                     const MeasurementStatusCard(),
+                    const SizedBox(height: 16),
+                    const BodyScanEntryCard(),
                     const SizedBox(height: 20),
                     Card(
                       margin: EdgeInsets.zero,

@@ -5,6 +5,7 @@ import '../models/size_analysis_result.dart';
 import '../models/analysis_history.dart';
 import '../widgets/analysis_result_details.dart';
 import '../widgets/analysis_save_card.dart';
+import '../widgets/body_demo_banner.dart';
 import '../models/reviewed_size_chart.dart';
 import '../providers/size_analysis_provider.dart';
 import 'measurement_list_screen.dart';
@@ -18,7 +19,11 @@ class SizeAnalysisScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final isBody = state.chart?.basis == ChartBasis.body;
     return Scaffold(
-      appBar: AppBar(title: const Text('Hasil analisis ukuran')),
+      appBar: AppBar(
+        title: Text(
+          state.isDemo ? 'Hasil analisis — Demo' : 'Hasil analisis ukuran',
+        ),
+      ),
       body: SafeArea(
         child: Align(
           alignment: Alignment.topCenter,
@@ -27,22 +32,24 @@ class SizeAnalysisScreen extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
+                if (state.isDemo) const BodyDemoBanner(),
                 Text(
                   'Profil aktif: ${state.profile?.label ?? 'Belum dipilih'}',
                   style: theme.textTheme.titleLarge,
                 ),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const MeasurementListScreen(),
+                if (!state.isDemo)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const MeasurementListScreen(),
+                        ),
                       ),
+                      icon: const Icon(Icons.person_outline),
+                      label: const Text('Pilih atau kelola profil'),
                     ),
-                    icon: const Icon(Icons.person_outline),
-                    label: const Text('Pilih atau kelola profil'),
                   ),
-                ),
                 const SizedBox(height: 16),
                 Text(
                   'Jenis tabel: ${state.chart?.basis.label ?? 'Belum tersedia'}',
@@ -103,7 +110,8 @@ class SizeAnalysisScreen extends StatelessWidget {
                 if (state.noticeMessage != null) Text(state.noticeMessage!),
                 if (result != null) ...[
                   const SizedBox(height: 24),
-                  AnalysisSaveCard(key: ValueKey(result.id), result: result),
+                  if (!state.isDemo)
+                    AnalysisSaveCard(key: ValueKey(result.id), result: result),
                   const SizedBox(height: 16),
                   AnalysisResultDetails(
                     snapshot: AnalysisSnapshot.fromResult(result),

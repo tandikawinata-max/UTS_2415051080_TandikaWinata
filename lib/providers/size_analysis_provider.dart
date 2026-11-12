@@ -11,10 +11,12 @@ import 'screenshot_provider.dart';
 class SizeAnalysisProvider extends ChangeNotifier {
   final MeasurementProvider measurements;
   final ScreenshotProvider screenshots;
+  final bool isDemo;
   final SizeAnalysisService _service;
   SizeAnalysisProvider({
     required this.measurements,
     required this.screenshots,
+    this.isDemo = false,
     SizeAnalysisService? service,
   }) : _service = service ?? const SizeAnalysisService() {
     measurements.addListener(_onSourceChanged);

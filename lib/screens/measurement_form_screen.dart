@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../models/body_measurement.dart';
 import '../providers/measurement_provider.dart';
 import '../utils/measurement_validators.dart';
+import '../widgets/body_scan_entry_card.dart';
 
 class MeasurementFormScreen extends StatefulWidget {
   final BodyMeasurement? initialMeasurement;
@@ -199,6 +200,10 @@ class _MeasurementFormScreenState extends State<MeasurementFormScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      if (!_isEditing) ...[
+                        BodyScanEntryCard(returnToForm: true, enabled: !busy),
+                        const SizedBox(height: 16),
+                      ],
                       const Text(
                         'Isi ukuran tubuh hasil pengukuranmu. '
                         'Kolom bertanda * wajib diisi. '

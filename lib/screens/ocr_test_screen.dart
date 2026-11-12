@@ -10,6 +10,7 @@ import '../providers/screenshot_provider.dart';
 import '../providers/size_analysis_provider.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/measurement_status_card.dart';
+import '../widgets/body_demo_banner.dart';
 import 'size_analysis_screen.dart';
 import 'measurement_list_screen.dart';
 import 'size_chart_review_screen.dart';
@@ -84,15 +85,21 @@ class OcrTestScreen extends StatelessWidget {
       );
       return;
     }
-    final history = context.read<AnalysisHistoryProvider>();
+    final history = analysis.isDemo
+        ? null
+        : context.read<AnalysisHistoryProvider>();
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => MultiProvider(
           providers: [
             ChangeNotifierProvider<SizeAnalysisProvider>.value(value: analysis),
-            ChangeNotifierProvider<AnalysisHistoryProvider>.value(
-              value: history,
+            ChangeNotifierProvider<MeasurementProvider>.value(
+              value: analysis.measurements,
             ),
+            if (history != null)
+              ChangeNotifierProvider<AnalysisHistoryProvider>.value(
+                value: history,
+              ),
           ],
           child: const SizeAnalysisScreen(),
         ),
@@ -151,6 +158,7 @@ class OcrTestScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final state = context.watch<ScreenshotProvider>();
     final measurements = context.watch<MeasurementProvider>();
+    final isDemo = context.watch<SizeAnalysisProvider>().isDemo;
     final path = state.imagePath;
     final chart = state.reviewedChart;
     final draft = state.buildChartDraft();
@@ -170,7 +178,11 @@ class OcrTestScreen extends StatelessWidget {
         !measurements.isBusy &&
         measurements.errorMessage == null;
     return Scaffold(
-      appBar: AppBar(title: const Text('Analisis screenshot')),
+      appBar: AppBar(
+        title: Text(
+          isDemo ? 'Analisis screenshot — Demo' : 'Analisis screenshot',
+        ),
+      ),
       body: SafeArea(
         child: Align(
           alignment: Alignment.topCenter,
@@ -179,19 +191,21 @@ class OcrTestScreen extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
+                if (isDemo) const BodyDemoBanner(),
                 const MeasurementStatusCard(),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const MeasurementListScreen(),
+                if (!isDemo)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const MeasurementListScreen(),
+                        ),
                       ),
+                      icon: const Icon(Icons.person_outline),
+                      label: const Text('Pilih profil tubuh'),
                     ),
-                    icon: const Icon(Icons.person_outline),
-                    label: const Text('Pilih profil tubuh'),
                   ),
-                ),
                 const SizedBox(height: 24),
                 Text(
                   'Temukan ukuran pakaianmu',
