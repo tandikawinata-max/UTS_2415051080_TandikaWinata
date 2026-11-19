@@ -8,7 +8,7 @@ import 'repositories/course_repository.dart';
 import 'screens/login_page.dart';
 import 'screens/main_dashboard.dart';
 import 'services/auth_service.dart';
-import 'services/course_api.dart';
+import 'services/course_supabase_service.dart';
 
 // Identitas Mahasiswa
 const String studentName = 'Tandika Winata';
@@ -55,9 +55,8 @@ Future<void> main() async {
   debugPrint('Supabase client berhasil diinisialisasi');
   debugPrint('Mahasiswa: $studentName ($studentId)');
 
-  final repository = CourseRepository(
-    CourseApiService('https://course-api-pearl.vercel.app/endpoint-salah'),
-  );
+  // Menggunakan CourseSupabaseService agar terhubung ke database Supabase
+  final repository = CourseRepository(CourseSupabaseService());
 
   runApp(
     ChangeNotifierProvider(

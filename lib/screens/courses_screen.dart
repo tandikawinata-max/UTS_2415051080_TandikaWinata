@@ -3,14 +3,29 @@ import 'package:provider/provider.dart';
 
 import '../models/course.dart';
 import '../providers/course_provider.dart';
+import '../services/profile_service.dart';
 import '../widgets/error_view.dart';
+import '../widgets/role_guard.dart';
 import 'course_form_screen.dart';
 
 const String studentName = 'Tandika Winata';
 const String studentId = '2415051080';
 
-class CoursesScreen extends StatelessWidget {
+class CoursesScreen extends StatefulWidget {
   const CoursesScreen({super.key});
+
+  @override
+  State<CoursesScreen> createState() => _CoursesScreenState();
+}
+
+class _CoursesScreenState extends State<CoursesScreen> {
+  late final Future<UserProfile?> _profileFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _profileFuture = ProfileService().getMyProfile();
+  }
 
   Future<void> _openAddCourse(BuildContext context) async {
     await Navigator.push<bool>(
@@ -70,23 +85,18 @@ class CoursesScreen extends StatelessWidget {
       },
     );
 
-    // Periksa context setelah dialog.
     if (!context.mounted) return;
-
     if (confirmed != true) return;
 
     try {
       await provider.deleteCourse(course);
 
-      // Periksa context setelah await DELETE.
       if (!context.mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${course.title} berhasil dihapus')),
       );
     } catch (e) {
       if (!context.mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('$e'),
@@ -100,61 +110,85 @@ class CoursesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<CourseProvider>();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Courses',
-                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 6),
-              const Text('$studentId - $studentName'),
-              const SizedBox(height: 8),
-              Row(
+    return FutureBuilder<UserProfile?>(
+      future: _profileFuture,
+      builder: (context, snap) {
+        final role = snap.data?.role ?? 'seeker';
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text('${provider.totalCourses} courses available'),
+                  Text(
+                    'Courses ($role)',
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  IconButton(
-                    tooltip: 'Refresh Data',
-                    onPressed: provider.isBusy
-                        ? null
-                        : () => context.read<CourseProvider>().loadCourses(),
-                    icon: const Icon(Icons.refresh),
+                  const SizedBox(height: 6),
+                  const Text('$studentId - $studentName'),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${provider.totalCourses} courses available',
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Refresh Data',
+                        onPressed: provider.isBusy
+                            ? null
+                            : () =>
+                                  context.read<CourseProvider>().loadCourses(),
+                        icon: const Icon(Icons.refresh),
+                      ),
+                    ],
                   ),
+                  // Tombol Tambah Course HANYA muncul untuk owner dan admin
+                  RoleGuard(
+                    role: role,
+                    allowed: const ['owner', 'admin'],
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: provider.isBusy
+                              ? null
+                              : () => _openAddCourse(context),
+                          icon: const Icon(Icons.add_circle_outline),
+                          label: const Text('Tambah Course'),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (provider.isDeleting) ...[
+                    const SizedBox(height: 12),
+                    const LinearProgressIndicator(),
+                    const SizedBox(height: 4),
+                    const Text('Menghapus course...'),
+                  ],
                 ],
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: provider.isBusy
-                      ? null
-                      : () => _openAddCourse(context),
-                  icon: const Icon(Icons.add_circle_outline),
-                  label: const Text('Tambah Course'),
-                ),
-              ),
-              if (provider.isDeleting) ...[
-                const SizedBox(height: 12),
-                const LinearProgressIndicator(),
-                const SizedBox(height: 4),
-                const Text('Menghapus course...'),
-              ],
-            ],
-          ),
-        ),
-        Expanded(child: _buildContent(context, provider)),
-      ],
+            ),
+            Expanded(child: _buildContent(context, provider, role)),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildContent(BuildContext context, CourseProvider provider) {
+  Widget _buildContent(
+    BuildContext context,
+    CourseProvider provider,
+    String role,
+  ) {
     // LOADING
     if (provider.isLoading || !provider.hasLoaded) {
       return const Center(
@@ -207,6 +241,7 @@ class CoursesScreen extends StatelessWidget {
                   context,
                   provider.courses[index],
                   provider,
+                  role,
                 );
               },
             );
@@ -227,6 +262,7 @@ class CoursesScreen extends StatelessWidget {
                 context,
                 provider.courses[index],
                 provider,
+                role,
               );
             },
           );
@@ -239,6 +275,7 @@ class CoursesScreen extends StatelessWidget {
     BuildContext context,
     Course course,
     CourseProvider provider,
+    String role,
   ) {
     final isFavorite = provider.isFavorite(course.code);
 
@@ -246,7 +283,7 @@ class CoursesScreen extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => _showCourseDetail(context, course),
+        onTap: () => _showCourseDetail(context, course, role),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
@@ -290,19 +327,32 @@ class CoursesScreen extends StatelessWidget {
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  IconButton(
-                    tooltip: 'Edit Course',
-                    onPressed: provider.isBusy
-                        ? null
-                        : () => _openEditCourse(context, course),
-                    icon: const Icon(Icons.edit_outlined),
-                  ),
-                  IconButton(
-                    tooltip: 'Hapus Course',
-                    onPressed: provider.isBusy
-                        ? null
-                        : () => _confirmDelete(context, course),
-                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  // Tombol Edit dan Hapus HANYA tampil untuk owner/admin
+                  RoleGuard(
+                    role: role,
+                    allowed: const ['owner', 'admin'],
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: 'Edit Course',
+                          onPressed: provider.isBusy
+                              ? null
+                              : () => _openEditCourse(context, course),
+                          icon: const Icon(Icons.edit_outlined),
+                        ),
+                        IconButton(
+                          tooltip: 'Hapus Course',
+                          onPressed: provider.isBusy
+                              ? null
+                              : () => _confirmDelete(context, course),
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            color: Colors.red,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   IconButton(
                     tooltip: 'Favorite',
@@ -326,7 +376,7 @@ class CoursesScreen extends StatelessWidget {
   }
 
   // DIALOG DETAIL
-  void _showCourseDetail(BuildContext context, Course course) {
+  void _showCourseDetail(BuildContext context, Course course, String role) {
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
@@ -347,21 +397,30 @@ class CoursesScreen extends StatelessWidget {
               onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Tutup'),
             ),
-            TextButton.icon(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                _openEditCourse(context, course);
-              },
-              icon: const Icon(Icons.edit),
-              label: const Text('Edit'),
-            ),
-            TextButton.icon(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                _confirmDelete(context, course);
-              },
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-              label: const Text('Hapus'),
+            RoleGuard(
+              role: role,
+              allowed: const ['owner', 'admin'],
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.pop(dialogContext);
+                      _openEditCourse(context, course);
+                    },
+                    icon: const Icon(Icons.edit),
+                    label: const Text('Edit'),
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.pop(dialogContext);
+                      _confirmDelete(context, course);
+                    },
+                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    label: const Text('Hapus'),
+                  ),
+                ],
+              ),
             ),
           ],
         );
