@@ -11,6 +11,7 @@ import 'screens/login_page.dart';
 import 'screens/main_dashboard.dart';
 import 'services/auth_service.dart';
 import 'services/course_supabase_service.dart';
+import 'services/notification_service.dart';
 
 // Identitas Mahasiswa
 const String studentName = 'Tandika Winata';
@@ -30,9 +31,12 @@ const String supabasePublishableKey = String.fromEnvironment(
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inisialisasi Firebase (Praktik 7)
+  // 1. Inisialisasi Firebase (Praktik 7)
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   debugPrint('Firebase berhasil diinisialisasi');
+
+  // 2. Minta Izin Notifikasi & Cek Status (Praktik 8)
+  await NotificationService().initPermission();
 
   if (supabaseUrl.isEmpty || supabasePublishableKey.isEmpty) {
     throw StateError(
@@ -86,7 +90,6 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6750A4)),
       ),
-      // Check Session: jika sudah login langsung ke MainDashboard, jika belum ke LoginPage
       home: AuthService.instance.isLoggedIn
           ? const MainDashboard()
           : const LoginPage(),
