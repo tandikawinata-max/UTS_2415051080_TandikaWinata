@@ -4,18 +4,22 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'providers/course_provider.dart';
 import 'repositories/course_repository.dart';
-import 'screens/main_dashboard.dart';
+import 'screens/login_page.dart';
 import 'services/course_api.dart';
 
 // Identitas Mahasiswa
 const String studentName = 'Tandika Winata';
 const String studentId = '2415051080';
 
-// Konfigurasi Supabase
-const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+// Konfigurasi Supabase (fallback ke string langsung jika tidak pakai --dart-define)
+const String supabaseUrl = String.fromEnvironment(
+  'SUPABASE_URL',
+  defaultValue: 'https://brvrwwnybauemcmxwoff.supabase.co',
+);
 
 const String supabasePublishableKey = String.fromEnvironment(
   'SUPABASE_PUBLISHABLE_KEY',
+  defaultValue: 'sb_publishable_9wsf43wmi4_SNTNOrmqqaA_8nZgnBya',
 );
 
 Future<void> main() async {
@@ -30,22 +34,21 @@ Future<void> main() async {
     );
   }
 
-  // TAHAP 10 - Inisialisasi Supabase
+  // Inisialisasi Supabase
   await Supabase.initialize(
     url: supabaseUrl,
     publishableKey: supabasePublishableKey,
   );
 
   debugPrint('Supabase client berhasil diinisialisasi');
-
   debugPrint('Mahasiswa: $studentName ($studentId)');
 
-  // TAHAP 12 - Mengganti REST API dengan Supabase
+  // Inisialisasi Repository dari project sebelumnya
   final repository = CourseRepository(
     CourseApiService('https://course-api-pearl.vercel.app/endpoint-salah'),
   );
 
-  // Provider tetap seperti tahap sebelumnya
+  // Membungkus MyApp dengan CourseProvider
   runApp(
     ChangeNotifierProvider(
       create: (_) => CourseProvider(repository)..loadCourses(),
@@ -66,7 +69,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6750A4)),
       ),
-      home: const MainDashboard(),
+      home: const LoginPage(),
     );
   }
 }
