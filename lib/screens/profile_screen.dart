@@ -1,14 +1,27 @@
 import 'package:flutter/material.dart';
 
-const String studentName = 'Tandika Winata';
+import '../services/auth_service.dart';
+import 'login_page.dart';
 
+const String studentName = 'Tandika Winata';
 const String studentId = '2415051080';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
+  Future<void> _handleLogout(BuildContext context) async {
+    await AuthService.instance.logout(); // Menghapus session aktif
+    if (!context.mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final user = AuthService.instance.currentUser;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -54,34 +67,58 @@ class ProfileScreen extends StatelessWidget {
 
           const SizedBox(height: 28),
 
-          const Card(
+          Card(
             child: Padding(
-              padding: EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  _ProfileRow(
+                  const _ProfileRow(
                     icon: Icons.badge_outlined,
                     label: 'Name',
                     value: 'Tandika Winata',
                   ),
 
-                  Divider(),
+                  const Divider(),
 
-                  _ProfileRow(
+                  const _ProfileRow(
                     icon: Icons.numbers_rounded,
                     label: 'NIM',
                     value: '2415051080',
                   ),
 
-                  Divider(),
+                  const Divider(),
 
-                  _ProfileRow(
+                  const _ProfileRow(
                     icon: Icons.school_outlined,
                     label: 'Class',
                     value: 'PTI 5B',
                   ),
+
+                  const Divider(),
+
+                  _ProfileRow(
+                    icon: Icons.email_outlined,
+                    label: 'Email',
+                    value: user?.email ?? '-',
+                  ),
                 ],
               ),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              onPressed: () => _handleLogout(context),
+              icon: const Icon(Icons.logout_rounded),
+              label: const Text('Logout'),
             ),
           ),
         ],
@@ -113,7 +150,14 @@ class _ProfileRow extends StatelessWidget {
 
           Expanded(child: Text(label)),
 
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
         ],
       ),
     );

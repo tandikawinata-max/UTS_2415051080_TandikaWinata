@@ -2,16 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'app_keys.dart';
 import 'providers/course_provider.dart';
 import 'repositories/course_repository.dart';
 import 'screens/login_page.dart';
+import 'screens/main_dashboard.dart';
+import 'services/auth_service.dart';
 import 'services/course_api.dart';
 
 // Identitas Mahasiswa
 const String studentName = 'Tandika Winata';
 const String studentId = '2415051080';
 
-// Konfigurasi Supabase (fallback ke string langsung jika tidak pakai --dart-define)
+// Konfigurasi Supabase
 const String supabaseUrl = String.fromEnvironment(
   'SUPABASE_URL',
   defaultValue: 'https://brvrwwnybauemcmxwoff.supabase.co',
@@ -25,7 +28,6 @@ const String supabasePublishableKey = String.fromEnvironment(
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Memeriksa konfigurasi Supabase
   if (supabaseUrl.isEmpty || supabasePublishableKey.isEmpty) {
     throw StateError(
       'Konfigurasi Supabase belum tersedia. '
@@ -34,21 +36,29 @@ Future<void> main() async {
     );
   }
 
-  // Inisialisasi Supabase
   await Supabase.initialize(
     url: supabaseUrl,
     publishableKey: supabasePublishableKey,
   );
 
+  // Mendengarkan perubahan status autentikasi (otomatis redirect jika signedOut)
+  Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+    debugPrint('Auth event: ${data.event}');
+    if (data.event == AuthChangeEvent.signedOut) {
+      navigatorKey.currentState?.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+        (route) => false,
+      );
+    }
+  });
+
   debugPrint('Supabase client berhasil diinisialisasi');
   debugPrint('Mahasiswa: $studentName ($studentId)');
 
-  // Inisialisasi Repository dari project sebelumnya
   final repository = CourseRepository(
     CourseApiService('https://course-api-pearl.vercel.app/endpoint-salah'),
   );
 
-  // Membungkus MyApp dengan CourseProvider
   runApp(
     ChangeNotifierProvider(
       create: (_) => CourseProvider(repository)..loadCourses(),
@@ -65,11 +75,16 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Course Explorer v2',
+      navigatorKey: navigatorKey,
+      scaffoldMessengerKey: messengerKey,
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6750A4)),
       ),
-      home: const LoginPage(),
+      // Check Session: jika sudah login langsung ke MainDashboard, jika belum ke LoginPage
+      home: AuthService.instance.isLoggedIn
+          ? const MainDashboard()
+          : const LoginPage(),
     );
   }
 }
