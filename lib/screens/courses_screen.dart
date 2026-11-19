@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/course.dart';
 import '../providers/course_provider.dart';
+import '../services/auth_service.dart';
 import '../services/profile_service.dart';
 import '../widgets/error_view.dart';
 import '../widgets/role_guard.dart';
@@ -278,6 +279,10 @@ class _CoursesScreenState extends State<CoursesScreen> {
     String role,
   ) {
     final isFavorite = provider.isFavorite(course.code);
+    final myId = AuthService.instance.currentUser?.id;
+    // Hanya owner pemilik course tersebut (atau admin) yang bisa edit & hapus
+    final canModify =
+        role == 'admin' || (role == 'owner' && course.ownerId == myId);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -327,33 +332,23 @@ class _CoursesScreenState extends State<CoursesScreen> {
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Tombol Edit dan Hapus HANYA tampil untuk owner/admin
-                  RoleGuard(
-                    role: role,
-                    allowed: const ['owner', 'admin'],
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          tooltip: 'Edit Course',
-                          onPressed: provider.isBusy
-                              ? null
-                              : () => _openEditCourse(context, course),
-                          icon: const Icon(Icons.edit_outlined),
-                        ),
-                        IconButton(
-                          tooltip: 'Hapus Course',
-                          onPressed: provider.isBusy
-                              ? null
-                              : () => _confirmDelete(context, course),
-                          icon: const Icon(
-                            Icons.delete_outline,
-                            color: Colors.red,
-                          ),
-                        ),
-                      ],
+                  // Tombol Edit dan Hapus HANYA tampil jika course ini milik user tersebut
+                  if (canModify) ...[
+                    IconButton(
+                      tooltip: 'Edit Course',
+                      onPressed: provider.isBusy
+                          ? null
+                          : () => _openEditCourse(context, course),
+                      icon: const Icon(Icons.edit_outlined),
                     ),
-                  ),
+                    IconButton(
+                      tooltip: 'Hapus Course',
+                      onPressed: provider.isBusy
+                          ? null
+                          : () => _confirmDelete(context, course),
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    ),
+                  ],
                   IconButton(
                     tooltip: 'Favorite',
                     onPressed: provider.isDeleting
@@ -377,6 +372,10 @@ class _CoursesScreenState extends State<CoursesScreen> {
 
   // DIALOG DETAIL
   void _showCourseDetail(BuildContext context, Course course, String role) {
+    final myId = AuthService.instance.currentUser?.id;
+    final canModify =
+        role == 'admin' || (role == 'owner' && course.ownerId == myId);
+
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
@@ -397,31 +396,24 @@ class _CoursesScreenState extends State<CoursesScreen> {
               onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Tutup'),
             ),
-            RoleGuard(
-              role: role,
-              allowed: const ['owner', 'admin'],
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextButton.icon(
-                    onPressed: () {
-                      Navigator.pop(dialogContext);
-                      _openEditCourse(context, course);
-                    },
-                    icon: const Icon(Icons.edit),
-                    label: const Text('Edit'),
-                  ),
-                  TextButton.icon(
-                    onPressed: () {
-                      Navigator.pop(dialogContext);
-                      _confirmDelete(context, course);
-                    },
-                    icon: const Icon(Icons.delete_outline, color: Colors.red),
-                    label: const Text('Hapus'),
-                  ),
-                ],
+            if (canModify) ...[
+              TextButton.icon(
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                  _openEditCourse(context, course);
+                },
+                icon: const Icon(Icons.edit),
+                label: const Text('Edit'),
               ),
-            ),
+              TextButton.icon(
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                  _confirmDelete(context, course);
+                },
+                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                label: const Text('Hapus'),
+              ),
+            ],
           ],
         );
       },

@@ -1,32 +1,39 @@
-//Tandika Winata-2415051080
 class Course {
   final int? id;
-  final String code;
+  final String? ownerId;
   final String title;
+  final String code;
   final int credits;
   final String status;
 
   const Course({
     this.id,
-    required this.code,
+    this.ownerId,
     required this.title,
+    required this.code,
     required this.credits,
-    this.status = 'planned',
+    required this.status,
   });
 
-  // Mengubah JSON menjadi object Course
   factory Course.fromJson(Map<String, dynamic> json) {
     return Course(
       id: json['id'] as int?,
-      code: json['code'] as String,
-      title: json['title'] as String,
-      credits: json['credits'] as int,
-      status: (json['status'] as String?) ?? 'planned',
+      ownerId: json['owner_id'] as String?,
+      title: (json['title'] ?? '') as String,
+      code: (json['code'] ?? '') as String,
+      credits: (json['credits'] ?? 0) as int,
+      status: (json['status'] ?? 'Aktif') as String,
     );
   }
 
-  // Mengubah object Course menjadi JSON
   Map<String, dynamic> toJson() {
-    return {'code': code, 'title': title, 'credits': credits, 'status': status};
+    return {
+      if (id != null) 'id': id,
+      if (ownerId != null) 'owner_id': ownerId,
+      'title': title,
+      'code': code,
+      'credits': credits,
+      'status': status,
+    };
   }
 }
