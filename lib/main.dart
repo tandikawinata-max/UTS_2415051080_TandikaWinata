@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -31,12 +32,15 @@ const String supabasePublishableKey = String.fromEnvironment(
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. Inisialisasi Firebase (Praktik 7)
+  // 1. Inisialisasi Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   debugPrint('Firebase berhasil diinisialisasi');
 
-  // 2. Minta Izin Notifikasi & Cek Status (Praktik 8)
-  await NotificationService().initPermission();
+  // 2. Daftarkan Background Message Handler (Praktik 9)
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+  // 3. Inisialisasi Izin & Listener Notifikasi (Praktik 8 & 9)
+  await NotificationService().init();
 
   if (supabaseUrl.isEmpty || supabasePublishableKey.isEmpty) {
     throw StateError(
@@ -65,7 +69,6 @@ Future<void> main() async {
   debugPrint('Supabase client berhasil diinisialisasi');
   debugPrint('Mahasiswa: $studentName ($studentId)');
 
-  // Menggunakan CourseSupabaseService agar terhubung ke database Supabase
   final repository = CourseRepository(CourseSupabaseService());
 
   runApp(
