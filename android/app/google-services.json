@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "790764125246",
+    "project_id": "course-explorer-fcm",
+    "storage_bucket": "course-explorer-fcm.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:790764125246:android:35bb29af5d1ca2cb44656f",
+        "android_client_info": {
+          "package_name": "com.example.flutter_ui_fundamentals"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB88yWS1AOZ9u-H-vnmY-gxiO_uWE9kqC8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

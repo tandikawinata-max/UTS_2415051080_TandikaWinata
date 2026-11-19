@@ -1,8 +1,10 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_keys.dart';
+import 'firebase_options.dart';
 import 'providers/course_provider.dart';
 import 'repositories/course_repository.dart';
 import 'screens/login_page.dart';
@@ -27,6 +29,10 @@ const String supabasePublishableKey = String.fromEnvironment(
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Inisialisasi Firebase (Praktik 7)
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  debugPrint('Firebase berhasil diinisialisasi');
 
   if (supabaseUrl.isEmpty || supabasePublishableKey.isEmpty) {
     throw StateError(
