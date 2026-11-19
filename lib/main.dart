@@ -36,12 +36,10 @@ Future<void> main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   debugPrint('Firebase berhasil diinisialisasi');
 
-  // 2. Daftarkan Background Message Handler (Praktik 9)
+  // 2. Daftarkan Background Message Handler (Praktik 10)
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-  // 3. Inisialisasi Izin & Listener Notifikasi (Praktik 8 & 9)
-  await NotificationService().init();
-
+  // 3. Validasi & Inisialisasi Supabase
   if (supabaseUrl.isEmpty || supabasePublishableKey.isEmpty) {
     throw StateError(
       'Konfigurasi Supabase belum tersedia. '

@@ -1,6 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../app_keys.dart';
 import '../firebase_options.dart';
@@ -9,74 +11,90 @@ import '../firebase_options.dart';
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  debugPrint('=== [BACKGROUND FCM] ===');
-  debugPrint('Message ID: ${message.messageId}');
-  debugPrint('Title: ${message.notification?.title}');
-  debugPrint('Body: ${message.notification?.body}');
+  debugPrint('[BACKGROUND] ${message.notification?.title}');
+  debugPrint('[BACKGROUND] ${message.notification?.body}');
 }
 
 class NotificationService {
-  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  NotificationService._();
+  static final NotificationService instance = NotificationService._();
 
-  Future<void> init() async {
-    // 1. Minta izin notifikasi (Praktik 8)
-    final NotificationSettings settings = await _messaging.requestPermission(
+  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  bool _initialized = false;
+
+  /// Meminta izin notifikasi dan mengembalikan statusnya (Praktik 8)
+  Future<AuthorizationStatus> requestPermission() async {
+    final settings = await _messaging.requestPermission(
       alert: true,
-      announcement: false,
       badge: true,
-      carPlay: false,
-      criticalAlert: false,
-      provisional: false,
+      sound: true,
+    );
+    debugPrint('Notification permission: ${settings.authorizationStatus.name}');
+    return settings.authorizationStatus;
+  }
+
+  /// Mendapatkan FCM Token perangkat (Praktik 9)
+  Future<String?> getToken() async {
+    final token = await _messaging.getToken();
+    debugPrint('FCM Token: $token');
+    return token;
+  }
+
+  /// Mendengarkan pembaruan FCM Token
+  void listenTokenRefresh(void Function(String token) onRefresh) {
+    _messaging.onTokenRefresh.listen((newToken) {
+      debugPrint('FCM Token diperbarui');
+      onRefresh(newToken);
+    });
+  }
+
+  /// Menyimpan token perangkat ke tabel device_tokens di Supabase
+  Future<void> saveTokenToSupabase(String token) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+
+    await Supabase.instance.client.from('device_tokens').upsert({
+      'token': token,
+      'user_id': user.id,
+      'platform': defaultTargetPlatform.name,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    });
+    debugPrint('FCM Token berhasil disimpan ke Supabase');
+  }
+
+  /// Inisialisasi lengkap izin, token, dan listener notifikasi (Praktik 10)
+  Future<void> init() async {
+    await requestPermission();
+
+    final token = await getToken();
+    if (token != null) await saveTokenToSupabase(token);
+
+    if (_initialized) return;
+    _initialized = true;
+
+    listenTokenRefresh(saveTokenToSupabase);
+
+    // iOS: tampilkan banner saat aplikasi di foreground
+    await _messaging.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
       sound: true,
     );
 
-    debugPrint('Status izin notifikasi: ${settings.authorizationStatus}');
-
-    if (settings.authorizationStatus == AuthorizationStatus.authorized ||
-        settings.authorizationStatus == AuthorizationStatus.provisional) {
-      final String? token = await _messaging.getToken();
-      debugPrint('FCM Device Token: $token');
-    } else {
-      debugPrint('Izin notifikasi ditolak oleh pengguna.');
-      return;
-    }
-
-    // 2. Tangani pesan saat aplikasi sedang dibuka (FOREGROUND)
+    // FOREGROUND: aplikasi sedang terbuka
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      final title = message.notification?.title ?? 'Notifikasi Baru';
+      debugPrint('[FOREGROUND] Notification received');
+      debugPrint('title: ${message.notification?.title}');
+      debugPrint('body : ${message.notification?.body}');
+      debugPrint('data : ${message.data}');
+
+      // Android tidak menampilkan notifikasi sistem saat foreground,
+      // jadi tampilkan sendiri di dalam aplikasi menggunakan SnackBar.
+      final title = message.notification?.title ?? 'Notifikasi';
       final body = message.notification?.body ?? '';
-
-      debugPrint('=== [FOREGROUND FCM] ===');
-      debugPrint('Title: $title | Body: $body');
-
       messengerKey.currentState?.showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 5),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-              if (body.isNotEmpty) Text(body),
-            ],
-          ),
-        ),
+        SnackBar(content: Text('$title\n$body')),
       );
     });
-
-    // 3. Tangani ketika pengguna mengetuk notifikasi dari tray (BACKGROUND -> OPENED)
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      debugPrint('=== [NOTIFIKASI DIKETUK] ===');
-      debugPrint('Title: ${message.notification?.title}');
-      debugPrint('Data payload: ${message.data}');
-    });
-
-    // 4. Cek apakah aplikasi dibuka dari kondisi mati total (TERMINATED) lewat notifikasi
-    final RemoteMessage? initialMessage = await _messaging.getInitialMessage();
-    if (initialMessage != null) {
-      debugPrint('=== [DIBUKA DARI TERMINATED] ===');
-      debugPrint('Title: ${initialMessage.notification?.title}');
-    }
   }
 }
